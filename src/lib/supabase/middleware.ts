@@ -47,9 +47,15 @@ export async function updateSession(request: NextRequest) {
   const isRootPage = request.nextUrl.pathname === "/";
 
   if (!user && !isPublicRoute && !isRootPage) {
-    // Redirect unauthenticated users to login
+    // BUG-3: Detect expired session by checking for lingering auth cookies
+    const hasAuthCookie = request.cookies.getAll().some(
+      (c) => c.name.startsWith("sb-") && c.name.includes("auth-token")
+    );
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    if (hasAuthCookie) {
+      url.searchParams.set("reason", "session_expired");
+    }
     return NextResponse.redirect(url);
   }
 

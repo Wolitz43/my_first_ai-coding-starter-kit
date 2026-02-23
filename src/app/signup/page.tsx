@@ -19,15 +19,14 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { createClient } from "@/lib/supabase/client";
-
+// BUG-4: Regex now supports umlauts and German characters
 const signupSchema = z.object({
   displayName: z
     .string()
     .min(3, "Anzeigename muss mindestens 3 Zeichen lang sein")
     .max(30, "Anzeigename darf maximal 30 Zeichen lang sein")
     .regex(
-      /^[a-zA-Z0-9_-]+$/,
+      /^[a-zA-ZäöüÄÖÜß0-9_-]+$/,
       "Nur Buchstaben, Zahlen, Unterstriche und Bindestriche erlaubt"
     ),
   email: z.string().email("Bitte gib eine gueltige E-Mail-Adresse ein"),
@@ -99,23 +98,24 @@ export default function SignupPage() {
     setError(null);
 
     try {
-      const supabase = createClient();
-      const { error: authError } = await supabase.auth.signUp({
-        email: values.email,
-        password: values.password,
-        options: {
-          data: {
-            display_name: values.displayName,
-          },
-        },
+      // BUG-6: Use API route for server-side validation
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: values.email,
+          password: values.password,
+          displayName: values.displayName,
+        }),
       });
 
-      if (authError) {
-        // Avoid account enumeration: generic message
+      const data = await res.json();
+
+      if (!res.ok) {
+        // BUG-5: Generic message that doesn't reveal if email is taken
         setError(
-          "Registrierung fehlgeschlagen. Bitte versuche es mit einer anderen E-Mail-Adresse."
+          data.error ?? "Registrierung fehlgeschlagen. Bitte versuche es erneut."
         );
-        setIsLoading(false);
         return;
       }
 
@@ -228,7 +228,7 @@ export default function SignupPage() {
                       ))}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Passworstaerke: {getStrengthLabel(passwordStrength)}
+                      Passwortstaerke: {getStrengthLabel(passwordStrength)}
                     </p>
                   </div>
                 )}

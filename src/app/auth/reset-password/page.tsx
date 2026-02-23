@@ -19,8 +19,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { createClient } from "@/lib/supabase/client";
-
 const resetPasswordSchema = z.object({
   email: z.string().email("Bitte gib eine gueltige E-Mail-Adresse ein"),
 });
@@ -44,17 +42,16 @@ export default function ResetPasswordPage() {
     setError(null);
 
     try {
-      const supabase = createClient();
-      const { error: authError } = await supabase.auth.resetPasswordForEmail(
-        values.email,
-        {
-          redirectTo: `${window.location.origin}/auth/update-password`,
-        }
-      );
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: values.email }),
+      });
 
-      if (authError) {
-        setError("Fehler beim Senden der E-Mail. Bitte versuche es erneut.");
-        setIsLoading(false);
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? "Fehler beim Senden der E-Mail. Bitte versuche es erneut.");
         return;
       }
 

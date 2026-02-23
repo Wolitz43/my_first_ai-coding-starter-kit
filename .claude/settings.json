@@ -20,7 +20,11 @@
       "mcp__supabase__get_project",
       "mcp__supabase__list_projects",
       "mcp__supabase__list_tables",
-      "mcp__supabase__execute_sql"
+      "mcp__supabase__execute_sql",
+      "Skill(help)",
+      "Skill(help:*)",
+      "Skill(deploy)",
+      "Skill(deploy:*)"
     ],
     "additionalDirectories": [
       "d:\\VS_Code_Projekte\\my_first_ai-coding-starter-kit\\src\\lib"

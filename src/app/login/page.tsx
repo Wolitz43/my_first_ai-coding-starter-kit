@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,7 +21,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { createClient } from "@/lib/supabase/client";
 
 const loginSchema = z.object({
   email: z.string().email("Bitte gib eine gueltige E-Mail-Adresse ein"),
@@ -30,10 +30,25 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-export default function LoginPage() {
+function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+
+  // Show message when session has expired
+  const sessionExpiredMessage =
+    searchParams.get("reason") === "session_expired"
+      ? "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an."
+      : null;
+
+  // Show message when auth callback failed (e.g. email confirmation link error)
+  const authCallbackFailedMessage =
+    searchParams.get("error") === "auth_callback_failed"
+      ? "Anmeldung fehlgeschlagen. Bitte versuche es erneut."
+      : null;
+
+  const infoMessage = sessionExpiredMessage ?? authCallbackFailedMessage;
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -49,14 +64,21 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const supabase = createClient();
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: values.email,
-        password: values.password,
+      // BUG-2 + BUG-1: Use API route for rate limiting + remember-me support
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: values.email,
+          password: values.password,
+          rememberMe: values.rememberMe ?? false,
+        }),
       });
 
-      if (authError) {
-        setError("E-Mail oder Passwort ist falsch. Bitte versuche es erneut.");
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? "Ein Fehler ist aufgetreten. Bitte versuche es erneut.");
         setIsLoading(false);
         return;
       }
@@ -73,6 +95,12 @@ export default function LoginPage() {
     <AuthLayout title="Anmelden" description="Melde dich bei deinem Konto an">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          {infoMessage && !error && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{infoMessage}</AlertDescription>
+            </Alert>
+          )}
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -184,5 +212,13 @@ export default function LoginPage() {
         </form>
       </Form>
     </AuthLayout>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

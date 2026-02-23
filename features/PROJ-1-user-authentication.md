@@ -106,7 +106,47 @@ Profil wird automatisch bei Registrierung via Supabase DB Trigger angelegt.
 - `@supabase/ssr` — Supabase für Next.js App Router (Server Components + Middleware)
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-02-23 | **Build Status:** Compiles successfully (Next.js 16.1.6)
+
+### Acceptance Criteria: 9/9 PASSED
+
+| AC | Kriterium | Status |
+|----|-----------|--------|
+| AC-1 | Signup mit E-Mail + Passwort (min. 8 Zeichen) | PASS |
+| AC-2 | Bestätigungs-E-Mail nach Signup | PASS |
+| AC-3 | Login mit gültigen Zugangsdaten | PASS |
+| AC-4 | Generische Fehlermeldung bei falschen Zugangsdaten | PASS |
+| AC-5 | Logout (serverseitige Session-Beendigung) | PASS |
+| AC-6 | Passwort-Reset per E-Mail-Link | PASS |
+| AC-7 | Anzeigename Pflichtfeld (3–30 Zeichen, _- erlaubt) | PASS |
+| AC-8 | Geschützte Seiten leiten zur Login-Seite weiter | PASS |
+| AC-9 | "Angemeldet bleiben"-Option | PASS |
+
+### Edge Cases: 5/5 abgedeckt
+
+### Bugs gefunden: 9 gesamt (0 Critical, 0 High, 4 Medium → alle behoben, 5 Low)
+
+**Behoben (Medium):**
+- ~~BUG-2~~ Rate Limiting auf Signup-Endpoint hinzugefügt (`/api/auth/signup/route.ts`)
+- ~~BUG-3~~ Rate Limiting auf Password-Reset-Endpoint hinzugefügt (`/api/auth/reset-password/route.ts`)
+- ~~BUG-7~~ `auth_callback_failed` Error-Parameter auf Login-Seite wird jetzt angezeigt
+- ~~BUG-8~~ Password Reset auf serverseitige API-Route umgestellt
+
+**Offen (Low — akzeptabel für MVP):**
+- BUG-1: Kein explizites Request-Body-Size-Limit auf API-Routen
+- BUG-4: In-Memory Rate-Limiter resettet bei Serverless Cold-Starts (akzeptiert)
+- BUG-5: Kein Content-Security-Policy Header
+- BUG-6: Signout-API gibt 302-Redirect auf `fetch()`-POST zurück (funktioniert)
+- BUG-9: Inkonsistente Umlaut-Kodierung in UI-Texten
+
+### Security Audit
+
+**Bestanden:** Open-Redirect-Schutz, Account-Enumeration-Prävention, serverseitige Zod-Validierung, Security Headers, doppelte Auth-Guard (Middleware + Server Component), Secrets via `.env.local`
+
+**Nachgebessert:** Rate Limiting auf Signup + Password Reset
+
+### QA-Ergebnis: APPROVED (nach Bug-Fixes)
 
 ## Deployment
 _To be added by /deploy_
