@@ -1,6 +1,6 @@
 # PROJ-1: User Authentication
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-02-22
 **Last Updated:** 2026-02-22
 

@@ -12,7 +12,7 @@
 
 | ID | Feature | Status | Spec | Created |
 |----|---------|--------|------|---------|
-| PROJ-1 | User Authentication | In Progress | [PROJ-1-user-authentication.md](PROJ-1-user-authentication.md) | 2026-02-22 |
+| PROJ-1 | User Authentication | In Review | [PROJ-1-user-authentication.md](PROJ-1-user-authentication.md) | 2026-02-22 |
 | PROJ-2 | Standort & Radius-Einstellung | Planned | [PROJ-2-location-radius-settings.md](PROJ-2-location-radius-settings.md) | 2026-02-22 |
 | PROJ-3 | Event-Erstellung & Verwaltung | Planned | [PROJ-3-event-creation.md](PROJ-3-event-creation.md) | 2026-02-22 |
 | PROJ-4 | Community-Posts | Planned | [PROJ-4-community-posts.md](PROJ-4-community-posts.md) | 2026-02-22 |

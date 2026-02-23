@@ -16,7 +16,14 @@
       "Bash(kill:*)",
       "Bash(npx shadcn@latest add:*)",
       "Bash(ls:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "mcp__supabase__get_project",
+      "mcp__supabase__list_projects",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__execute_sql"
+    ],
+    "additionalDirectories": [
+      "d:\\VS_Code_Projekte\\my_first_ai-coding-starter-kit\\src\\lib"
     ]
   }
 }
