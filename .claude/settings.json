@@ -24,7 +24,10 @@
       "Skill(help)",
       "Skill(help:*)",
       "Skill(deploy)",
-      "Skill(deploy:*)"
+      "Skill(deploy:*)",
+      "Bash(npx vercel ls)",
+      "Bash(npx vercel inspect:*)",
+      "Bash(npx vercel env ls:*)"
     ],
     "additionalDirectories": [
       "d:\\VS_Code_Projekte\\my_first_ai-coding-starter-kit\\src\\lib"
