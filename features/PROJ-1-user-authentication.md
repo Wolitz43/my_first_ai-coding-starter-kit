@@ -149,4 +149,14 @@ Profil wird automatisch bei Registrierung via Supabase DB Trigger angelegt.
 ### QA-Ergebnis: APPROVED (nach Bug-Fixes)
 
 ## Deployment
-_To be added by /deploy_
+
+**Deployed:** 2026-02-24
+**Production URL:** https://my-first-ai-coding-starter-kit.vercel.app
+**Platform:** Vercel (auto-deploy via GitHub `main` branch)
+
+### Checklist
+- [x] Build successful (Next.js 16.1.6, 13/13 pages)
+- [x] Environment variables set (SUPABASE_URL, SUPABASE_ANON_KEY, SITE_URL)
+- [x] Security headers configured (X-Frame-Options, HSTS, etc.)
+- [x] Production URL loads correctly
+- [x] Authentication flows verified in production
