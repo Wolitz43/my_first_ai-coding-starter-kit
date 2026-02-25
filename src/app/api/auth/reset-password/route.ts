@@ -50,9 +50,13 @@ export async function POST(request: NextRequest) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const supabase = await createClient();
 
-  await supabase.auth.resetPasswordForEmail(email, {
+  const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${siteUrl}/auth/callback?next=/auth/update-password`,
   });
+
+  if (resetError) {
+    console.error("[reset-password] Supabase error:", resetError.message);
+  }
 
   // Always return success to prevent account enumeration
   return NextResponse.json({ success: true });
