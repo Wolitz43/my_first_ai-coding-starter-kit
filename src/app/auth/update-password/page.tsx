@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -45,6 +45,17 @@ export default function UpdatePasswordPage() {
       confirmPassword: "",
     },
   });
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setError("Dein Link ist abgelaufen oder ungültig. Bitte fordere einen neuen an.");
+      }
+    };
+    checkSession();
+  }, []);
 
   async function onSubmit(values: UpdatePasswordFormValues) {
     setIsLoading(true);

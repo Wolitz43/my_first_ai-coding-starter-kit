@@ -56,7 +56,8 @@ export async function updateSession(request: NextRequest) {
     if (hasAuthCookie) {
       url.searchParams.set("reason", "session_expired");
     }
-    return NextResponse.redirect(url);
+    // Use 302 (not default 307) so POST requests are converted to GET on redirect
+    return NextResponse.redirect(url, 302);
   }
 
   // If user is authenticated and trying to access login/signup, redirect to dashboard
