@@ -69,7 +69,8 @@ export default function UpdatePasswordPage() {
       }
 
       setIsSuccess(true);
-    } catch {
+    } catch (err) {
+      console.error("[update-password] Unexpected error:", err);
       setError("Ein unerwarteter Fehler ist aufgetreten. Bitte versuche es erneut.");
     } finally {
       setIsLoading(false);

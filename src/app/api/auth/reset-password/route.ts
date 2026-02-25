@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
   const supabase = await createClient();
 
   await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${siteUrl}/auth/update-password`,
+    redirectTo: `${siteUrl}/auth/callback?next=/auth/update-password`,
   });
 
   // Always return success to prevent account enumeration
