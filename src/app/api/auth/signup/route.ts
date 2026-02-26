@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (error) {
-    // BUG-5: Generic message to avoid account enumeration
+    console.error("[signup] Supabase error:", error.message);
     return NextResponse.json(
       { error: "Registrierung fehlgeschlagen. Bitte versuche es erneut." },
       { status: 400 }
