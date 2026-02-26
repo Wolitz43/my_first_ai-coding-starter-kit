@@ -49,21 +49,40 @@ export async function POST(request: NextRequest) {
   }
 
   // Check if email is registered using admin client
-  const adminClient = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-  const { data: userList, error: lookupError } = await adminClient.auth.admin.listUsers();
-  if (lookupError) {
-    console.error("[reset-password] Admin lookup error:", lookupError.message);
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    console.error("[reset-password] SUPABASE_SERVICE_ROLE_KEY is not set");
+    return NextResponse.json(
+      { error: "Serverkonfiguration fehlt. Bitte kontaktiere den Support." },
+      { status: 500 }
+    );
+  }
+
+  let userExists = false;
+  try {
+    const adminClient = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      serviceRoleKey
+    );
+    const { data: userList, error: lookupError } = await adminClient.auth.admin.listUsers();
+    if (lookupError) {
+      console.error("[reset-password] Admin lookup error:", lookupError.message);
+      return NextResponse.json(
+        { error: "Ein Fehler ist aufgetreten. Bitte versuche es erneut." },
+        { status: 500 }
+      );
+    }
+    userExists = userList.users.some(
+      (u) => u.email?.toLowerCase() === email.toLowerCase()
+    );
+  } catch (err) {
+    console.error("[reset-password] Admin client error:", err);
     return NextResponse.json(
       { error: "Ein Fehler ist aufgetreten. Bitte versuche es erneut." },
       { status: 500 }
     );
   }
-  const userExists = userList.users.some(
-    (u) => u.email?.toLowerCase() === email.toLowerCase()
-  );
+
   if (!userExists) {
     return NextResponse.json(
       { error: "Diese E-Mail-Adresse ist nicht registriert." },
