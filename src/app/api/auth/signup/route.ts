@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
   if (error) {
     console.error("[signup] Supabase error:", error.message);
     return NextResponse.json(
-      { error: "Registrierung fehlgeschlagen. Bitte versuche es erneut." },
+      { error: `[DEBUG] ${error.message}` },
       { status: 400 }
     );
   }
