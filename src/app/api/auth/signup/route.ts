@@ -53,19 +53,21 @@ export async function POST(request: NextRequest) {
     rateLimitStore.set(rateKey, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
   }
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const supabase = await createClient();
   const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: { display_name: displayName },
+      emailRedirectTo: `${siteUrl}/auth/callback`,
     },
   });
 
   if (error) {
     console.error("[signup] Supabase error:", error.message);
     return NextResponse.json(
-      { error: `[DEBUG] ${error.message}` },
+      { error: "Registrierung fehlgeschlagen. Bitte versuche es erneut." },
       { status: 400 }
     );
   }

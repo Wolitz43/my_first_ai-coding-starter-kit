@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
   if (resetError) {
     console.error("[reset-password] Supabase error:", resetError.message);
     return NextResponse.json(
-      { error: `[DEBUG] ${resetError.message}` },
+      { error: "Fehler beim Senden der E-Mail. Bitte versuche es erneut." },
       { status: 500 }
     );
   }
