@@ -37,6 +37,7 @@ export function LocationPickerSheet({
   const [isGpsLoading, setIsGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Sync form state when sheet opens
   useEffect(() => {
@@ -93,16 +94,22 @@ export function LocationPickerSheet({
   }
 
   async function handleSave() {
-    if (!selectedLat || !selectedLng) return;
+    if (selectedLat === null || selectedLng === null) return;
     setIsSaving(true);
-    await onSave({
-      lat: selectedLat,
-      lng: selectedLng,
-      city: selectedCity,
-      radiusKm: selectedRadius,
-    });
-    setIsSaving(false);
-    onOpenChange(false);
+    setSaveError(null);
+    try {
+      await onSave({
+        lat: selectedLat,
+        lng: selectedLng,
+        city: selectedCity,
+        radiusKm: selectedRadius,
+      });
+      onOpenChange(false);
+    } catch {
+      setSaveError("Standort konnte nicht gespeichert werden. Bitte versuche es erneut.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -194,11 +201,19 @@ export function LocationPickerSheet({
             </div>
           )}
 
+          {/* Save Error */}
+          {saveError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{saveError}</AlertDescription>
+            </Alert>
+          )}
+
           {/* Save Button */}
           <Button
             className="w-full"
             onClick={handleSave}
-            disabled={!selectedLat || !selectedLng || isSaving}
+            disabled={selectedLat === null || selectedLng === null || isSaving}
           >
             {isSaving ? (
               <>

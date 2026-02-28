@@ -60,7 +60,7 @@ export function useLocation() {
 
     if (!user) return;
 
-    await supabase
+    const { error } = await supabase
       .from("profiles")
       .update({
         location_lat: newLocation.lat,
@@ -70,6 +70,10 @@ export function useLocation() {
         updated_at: new Date().toISOString(),
       })
       .eq("id", user.id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
 
     setLocation(newLocation);
   }
