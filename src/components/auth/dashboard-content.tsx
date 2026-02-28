@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { MapPin, LogOut, Loader2, Trash2 } from "lucide-react";
+import { LogOut, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LocationBadge } from "@/components/location/location-badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,15 +56,21 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
+    <div className="min-h-screen bg-gray-50">
+      {/* Top Header */}
+      <header className="sticky top-0 z-40 bg-white border-b">
+        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-bold tracking-tight">NearBy</span>
+          </div>
+          <LocationBadge />
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex items-center justify-center px-4 py-8 min-h-[calc(100vh-3.5rem)]">
       <Card className="w-full max-w-md border-0 shadow-md">
         <CardHeader className="text-center">
-          <div className="mb-4 flex justify-center">
-            <div className="flex items-center gap-2">
-              <MapPin className="h-6 w-6 text-primary" aria-hidden="true" />
-              <span className="text-xl font-bold tracking-tight">NearBy</span>
-            </div>
-          </div>
           <CardTitle className="text-2xl">
             Willkommen{displayName ? `, ${displayName}` : " bei NearBy"}!
           </CardTitle>
@@ -139,6 +146,7 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
           </AlertDialog>
         </CardContent>
       </Card>
+      </main>
     </div>
   );
 }
