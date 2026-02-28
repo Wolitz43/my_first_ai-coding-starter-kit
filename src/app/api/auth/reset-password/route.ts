@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 // Rate limit: max 3 password reset requests per 15 minutes per email
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
@@ -48,48 +47,9 @@ export async function POST(request: NextRequest) {
     rateLimitStore.set(rateKey, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
   }
 
-  // Check if email is registered using admin client
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRoleKey) {
-    console.error("[reset-password] SUPABASE_SERVICE_ROLE_KEY is not set");
-    return NextResponse.json(
-      { error: "Serverkonfiguration fehlt. Bitte kontaktiere den Support." },
-      { status: 500 }
-    );
-  }
-
-  let userExists = false;
-  try {
-    const adminClient = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey
-    );
-    const { data: userList, error: lookupError } = await adminClient.auth.admin.listUsers();
-    if (lookupError) {
-      console.error("[reset-password] Admin lookup error:", lookupError.message);
-      return NextResponse.json(
-        { error: "Ein Fehler ist aufgetreten. Bitte versuche es erneut." },
-        { status: 500 }
-      );
-    }
-    userExists = userList.users.some(
-      (u) => u.email?.toLowerCase() === email.toLowerCase()
-    );
-  } catch (err) {
-    console.error("[reset-password] Admin client error:", err);
-    return NextResponse.json(
-      { error: "Ein Fehler ist aufgetreten. Bitte versuche es erneut." },
-      { status: 500 }
-    );
-  }
-
-  if (!userExists) {
-    return NextResponse.json(
-      { error: "Diese E-Mail-Adresse ist nicht registriert." },
-      { status: 404 }
-    );
-  }
-
+  // Always return success regardless of whether the email is registered.
+  // This prevents account enumeration attacks. Supabase silently skips
+  // sending the email if the address does not exist.
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const supabase = await createClient();
 
