@@ -1,9 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { MapPin, LogOut, Loader2 } from "lucide-react";
+import { MapPin, LogOut, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface DashboardContentProps {
   userEmail: string;
@@ -12,6 +23,8 @@ interface DashboardContentProps {
 
 export function DashboardContent({ userEmail, displayName }: DashboardContentProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function handleLogout() {
     setIsLoading(true);
@@ -20,6 +33,24 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
       window.location.href = "/login";
     } catch {
       setIsLoading(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch("/api/auth/delete-account", { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        setDeleteError(data.error ?? "Fehler beim Löschen des Kontos.");
+        return;
+      }
+      window.location.href = "/login";
+    } catch {
+      setDeleteError("Ein unerwarteter Fehler ist aufgetreten.");
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -48,7 +79,7 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
             variant="outline"
             className="w-full"
             onClick={handleLogout}
-            disabled={isLoading}
+            disabled={isLoading || isDeleting}
           >
             {isLoading ? (
               <>
@@ -62,6 +93,50 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
               </>
             )}
           </Button>
+
+          {deleteError && (
+            <p className="text-sm text-destructive text-center">{deleteError}</p>
+          )}
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+                disabled={isLoading || isDeleting}
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Konto wird gelöscht...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    Konto löschen
+                  </>
+                )}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Konto wirklich löschen?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Diese Aktion kann nicht rückgängig gemacht werden. Dein Konto und alle
+                  zugehörigen Daten werden dauerhaft gelöscht.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteAccount}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Ja, Konto löschen
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </CardContent>
       </Card>
     </div>

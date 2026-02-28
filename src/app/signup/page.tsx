@@ -151,7 +151,7 @@ export default function SignupPage() {
   return (
     <AuthLayout title="Konto erstellen" description="Erstelle ein neues NearBy-Konto">
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" autoComplete="off">
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
