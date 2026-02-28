@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { MapPin, Navigation, Loader2, AlertCircle } from "lucide-react";
+
+const LocationMap = dynamic(
+  () => import("./location-map").then((m) => m.LocationMap),
+  {
+    ssr: false,
+    loading: () => <div className="h-48 w-full rounded-md bg-muted animate-pulse" />,
+  }
+);
 import {
   Sheet,
   SheetContent,
@@ -191,12 +200,13 @@ export function LocationPickerSheet({
             </div>
           </div>
 
-          {/* Current Selection Preview */}
-          {selectedCity && (
-            <div className="rounded-md bg-muted p-3">
-              <p className="text-sm text-muted-foreground">Ausgewählter Standort</p>
-              <p className="font-medium mt-0.5">
-                {selectedCity} • {selectedRadius} km
+          {/* Map Preview */}
+          {selectedLat !== null && selectedLng !== null && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Vorschau</p>
+              <LocationMap lat={selectedLat} lng={selectedLng} radiusKm={selectedRadius} />
+              <p className="text-xs text-muted-foreground text-center">
+                {selectedCity ?? "Standort"} • {selectedRadius} km Radius
               </p>
             </div>
           )}
