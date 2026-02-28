@@ -168,7 +168,7 @@ export default function SignupPage() {
                 <FormControl>
                   <Input
                     placeholder="Dein Anzeigename"
-                    autoComplete="username"
+                    autoComplete="nickname"
                     disabled={isLoading}
                     {...field}
                   />
