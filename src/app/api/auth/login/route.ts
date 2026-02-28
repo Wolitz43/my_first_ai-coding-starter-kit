@@ -65,6 +65,14 @@ export async function POST(request: NextRequest) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
+    // E-Mail noch nicht bestätigt – kein Rate-Limit erhöhen
+    if (error.code === "email_not_confirmed") {
+      return NextResponse.json(
+        { error: "E-Mail noch nicht bestätigt.", emailNotConfirmed: true },
+        { status: 403 }
+      );
+    }
+
     // Increment rate limit counter
     const current = rateLimitStore.get(rateKey);
     if (current && now < current.resetAt) {

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Loader2, AlertCircle, MailCheck } from "lucide-react";
 
 import { AuthLayout } from "@/components/auth/auth-layout";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,9 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailNotConfirmed, setEmailNotConfirmed] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
   const searchParams = useSearchParams();
 
   // Show message when session has expired
@@ -59,9 +62,25 @@ function LoginForm() {
     },
   });
 
+  async function handleResendConfirmation() {
+    setResendLoading(true);
+    try {
+      await fetch("/api/auth/resend-confirmation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.getValues("email") }),
+      });
+      setResendSuccess(true);
+    } finally {
+      setResendLoading(false);
+    }
+  }
+
   async function onSubmit(values: LoginFormValues) {
     setIsLoading(true);
     setError(null);
+    setEmailNotConfirmed(false);
+    setResendSuccess(false);
 
     try {
       // BUG-2 + BUG-1: Use API route for rate limiting + remember-me support
@@ -78,7 +97,11 @@ function LoginForm() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error ?? "Ein Fehler ist aufgetreten. Bitte versuche es erneut.");
+        if (data.emailNotConfirmed) {
+          setEmailNotConfirmed(true);
+        } else {
+          setError(data.error ?? "Ein Fehler ist aufgetreten. Bitte versuche es erneut.");
+        }
         setIsLoading(false);
         return;
       }
@@ -95,10 +118,32 @@ function LoginForm() {
     <AuthLayout title="Anmelden" description="Melde dich bei deinem Konto an">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          {infoMessage && !error && (
+          {infoMessage && !error && !emailNotConfirmed && (
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{infoMessage}</AlertDescription>
+            </Alert>
+          )}
+          {emailNotConfirmed && (
+            <Alert>
+              <MailCheck className="h-4 w-4" />
+              <AlertDescription className="space-y-2">
+                <p>
+                  Bitte bestätige zuerst deine E-Mail-Adresse. Schau in deinem Postfach nach.
+                </p>
+                {resendSuccess ? (
+                  <p className="text-sm font-medium">Bestätigungsmail wurde erneut gesendet.</p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleResendConfirmation}
+                    disabled={resendLoading}
+                    className="text-sm font-medium underline underline-offset-2 disabled:opacity-50"
+                  >
+                    {resendLoading ? "Wird gesendet..." : "Bestätigungsmail erneut senden"}
+                  </button>
+                )}
+              </AlertDescription>
             </Alert>
           )}
           {error && (
