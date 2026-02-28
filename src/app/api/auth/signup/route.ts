@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 // Rate limit: max 5 signup attempts per email per hour
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
@@ -51,6 +52,24 @@ export async function POST(request: NextRequest) {
     rateLimitStore.set(rateKey, { count: current.count + 1, resetAt: current.resetAt });
   } else {
     rateLimitStore.set(rateKey, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+  }
+
+  // Check if display name is already taken (case-insensitive)
+  const adminClient = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+  const { data: existingProfile } = await adminClient
+    .from("profiles")
+    .select("id")
+    .ilike("display_name", displayName)
+    .maybeSingle();
+
+  if (existingProfile) {
+    return NextResponse.json(
+      { error: "Dieser Anzeigename ist bereits vergeben. Bitte wähle einen anderen." },
+      { status: 409 }
+    );
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
