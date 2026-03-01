@@ -16,11 +16,21 @@ const DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-function MapViewUpdater({ lat, lng }: { lat: number; lng: number }) {
+export function getZoomForRadius(radiusKm: number): number {
+  if (radiusKm <= 0.1) return 16;
+  if (radiusKm <= 0.25) return 15;
+  if (radiusKm <= 0.5) return 14;
+  if (radiusKm <= 1) return 13;
+  if (radiusKm <= 5) return 11;
+  if (radiusKm <= 20) return 9;
+  return 7;
+}
+
+function MapViewUpdater({ lat, lng, radiusKm }: { lat: number; lng: number; radiusKm: number }) {
   const map = useMap();
   useEffect(() => {
-    map.setView([lat, lng], map.getZoom(), { animate: true });
-  }, [lat, lng, map]);
+    map.setView([lat, lng], getZoomForRadius(radiusKm), { animate: true });
+  }, [lat, lng, radiusKm, map]);
   return null;
 }
 
@@ -28,14 +38,15 @@ interface LocationMapProps {
   lat: number;
   lng: number;
   radiusKm: number;
+  className?: string;
 }
 
-export function LocationMap({ lat, lng, radiusKm }: LocationMapProps) {
+export function LocationMap({ lat, lng, radiusKm, className = "h-48 w-full rounded-md z-0" }: LocationMapProps) {
   return (
     <MapContainer
       center={[lat, lng]}
-      zoom={11}
-      className="h-48 w-full rounded-md z-0"
+      zoom={getZoomForRadius(radiusKm)}
+      className={className}
       scrollWheelZoom={false}
       zoomControl={true}
     >
@@ -54,7 +65,7 @@ export function LocationMap({ lat, lng, radiusKm }: LocationMapProps) {
           weight: 2,
         }}
       />
-      <MapViewUpdater lat={lat} lng={lng} />
+      <MapViewUpdater lat={lat} lng={lng} radiusKm={radiusKm} />
     </MapContainer>
   );
 }

@@ -24,7 +24,12 @@ import { Separator } from "@/components/ui/separator";
 import { LocationAutocomplete } from "./location-autocomplete";
 import type { LocationData } from "@/hooks/use-location";
 
-const RADIUS_OPTIONS = [1, 5, 10, 25, 50, 100] as const;
+const RADIUS_OPTIONS = [0.1, 0.25, 0.5, 1, 5, 20, 100] as const;
+
+function formatRadius(km: number): string {
+  if (km < 1) return `${Math.round(km * 1000)}m`;
+  return `${km} km`;
+}
 
 interface LocationPickerSheetProps {
   open: boolean;
@@ -184,7 +189,7 @@ export function LocationPickerSheet({
           {/* Radius Selection */}
           <div className="space-y-3">
             <p className="text-sm font-medium">Suchradius</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               {RADIUS_OPTIONS.map((km) => (
                 <Button
                   key={km}
@@ -194,7 +199,7 @@ export function LocationPickerSheet({
                   className="w-full"
                   aria-pressed={selectedRadius === km}
                 >
-                  {km} km
+                  {formatRadius(km)}
                 </Button>
               ))}
             </div>
@@ -206,7 +211,7 @@ export function LocationPickerSheet({
               <p className="text-sm font-medium">Vorschau</p>
               <LocationMap lat={selectedLat} lng={selectedLng} radiusKm={selectedRadius} />
               <p className="text-xs text-muted-foreground text-center">
-                {selectedCity ?? "Standort"} • {selectedRadius} km Radius
+                {selectedCity ?? "Standort"} • {formatRadius(selectedRadius)} Radius
               </p>
             </div>
           )}

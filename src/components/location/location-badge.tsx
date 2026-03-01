@@ -27,7 +27,10 @@ export function LocationBadge() {
         <MapPin className="h-3.5 w-3.5 text-primary" />
         {location.city ? (
           <span>
-            {location.city} • {location.radiusKm} km
+            {location.city} •{" "}
+            {location.radiusKm < 1
+              ? `${Math.round(location.radiusKm * 1000)}m`
+              : `${location.radiusKm} km`}
           </span>
         ) : (
           <span className="text-muted-foreground">Standort setzen</span>

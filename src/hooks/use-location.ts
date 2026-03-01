@@ -15,7 +15,7 @@ export function useLocation() {
     lat: null,
     lng: null,
     city: null,
-    radiusKm: 10,
+    radiusKm: 1,
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -42,7 +42,7 @@ export function useLocation() {
           lat: data.location_lat ?? null,
           lng: data.location_lng ?? null,
           city: data.location_city ?? null,
-          radiusKm: data.location_radius_km ?? 10,
+          radiusKm: data.location_radius_km ?? 1,
         });
       }
 
