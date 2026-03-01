@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Circle, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Circle, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -34,38 +34,66 @@ function MapViewUpdater({ lat, lng, radiusKm }: { lat: number; lng: number; radi
   return null;
 }
 
+function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click(e) {
+      onClick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
+
 interface LocationMapProps {
   lat: number;
   lng: number;
   radiusKm: number;
   className?: string;
+  /** Show marker and radius circle at the given position */
+  showPin?: boolean;
+  /** Enable scroll-wheel zooming (default: false) */
+  scrollWheelZoom?: boolean;
+  /** Called when the user clicks on the map */
+  onMapClick?: (lat: number, lng: number) => void;
 }
 
-export function LocationMap({ lat, lng, radiusKm, className = "h-48 w-full rounded-md z-0" }: LocationMapProps) {
+export function LocationMap({
+  lat,
+  lng,
+  radiusKm,
+  className = "h-48 w-full rounded-md z-0",
+  showPin = true,
+  scrollWheelZoom = false,
+  onMapClick,
+}: LocationMapProps) {
   return (
-    <MapContainer
-      center={[lat, lng]}
-      zoom={getZoomForRadius(radiusKm)}
-      className={className}
-      scrollWheelZoom={false}
-      zoomControl={true}
-    >
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-      />
-      <Marker position={[lat, lng]} />
-      <Circle
+    <div className={onMapClick ? "[&_.leaflet-container]:cursor-crosshair" : undefined}>
+      <MapContainer
         center={[lat, lng]}
-        radius={radiusKm * 1000}
-        pathOptions={{
-          color: "#2563eb",
-          fillColor: "#2563eb",
-          fillOpacity: 0.1,
-          weight: 2,
-        }}
-      />
-      <MapViewUpdater lat={lat} lng={lng} radiusKm={radiusKm} />
-    </MapContainer>
+        zoom={showPin ? getZoomForRadius(radiusKm) : 6}
+        className={className}
+        scrollWheelZoom={scrollWheelZoom}
+        zoomControl={true}
+      >
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        />
+        {showPin && <Marker position={[lat, lng]} />}
+        {showPin && (
+          <Circle
+            center={[lat, lng]}
+            radius={radiusKm * 1000}
+            pathOptions={{
+              color: "#2563eb",
+              fillColor: "#2563eb",
+              fillOpacity: 0.1,
+              weight: 2,
+            }}
+          />
+        )}
+        {showPin && <MapViewUpdater lat={lat} lng={lng} radiusKm={radiusKm} />}
+        {onMapClick && <MapClickHandler onClick={onMapClick} />}
+      </MapContainer>
+    </div>
   );
 }

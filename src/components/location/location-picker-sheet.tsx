@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { MapPin, Navigation, Loader2, AlertCircle } from "lucide-react";
+import { MapPin, Navigation, Loader2, AlertCircle, MousePointer2 } from "lucide-react";
 
 const LocationMap = dynamic(
   () => import("./location-map").then((m) => m.LocationMap),
   {
     ssr: false,
-    loading: () => <div className="h-48 w-full rounded-md bg-muted animate-pulse" />,
+    loading: () => <div className="h-56 w-full rounded-md bg-muted animate-pulse" />,
   }
 );
 import {
@@ -24,6 +24,10 @@ import { Separator } from "@/components/ui/separator";
 import { LocationAutocomplete } from "./location-autocomplete";
 import type { LocationData } from "@/hooks/use-location";
 import { RADIUS_OPTIONS, formatRadius } from "@/lib/location";
+
+// Default map center when no location is set yet (Germany)
+const DEFAULT_LAT = 51.1657;
+const DEFAULT_LNG = 10.4515;
 
 interface LocationPickerSheetProps {
   open: boolean;
@@ -46,6 +50,7 @@ export function LocationPickerSheet({
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
 
   // Sync form state when sheet opens
   useEffect(() => {
@@ -55,8 +60,23 @@ export function LocationPickerSheet({
       setSelectedCity(currentLocation.city);
       setSelectedRadius(currentLocation.radiusKm);
       setGpsError(null);
+      setSaveError(null);
     }
   }, [open, currentLocation]);
+
+  async function reverseGeocode(lat: number, lng: number): Promise<string> {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+        { headers: { "Accept-Language": "de" } }
+      );
+      const data = await res.json();
+      const a = data.address ?? {};
+      return a.city ?? a.town ?? a.village ?? a.county ?? "Mein Standort";
+    } catch {
+      return "Mein Standort";
+    }
+  }
 
   async function handleGps() {
     setIsGpsLoading(true);
@@ -71,22 +91,10 @@ export function LocationPickerSheet({
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
-            { headers: { "Accept-Language": "de" } }
-          );
-          const data = await res.json();
-          const a = data.address ?? {};
-          const city = a.city ?? a.town ?? a.village ?? a.county ?? "Mein Standort";
-          setSelectedLat(latitude);
-          setSelectedLng(longitude);
-          setSelectedCity(city);
-        } catch {
-          setSelectedLat(latitude);
-          setSelectedLng(longitude);
-          setSelectedCity("Mein Standort");
-        }
+        const city = await reverseGeocode(latitude, longitude);
+        setSelectedLat(latitude);
+        setSelectedLng(longitude);
+        setSelectedCity(city);
         setIsGpsLoading(false);
       },
       (err) => {
@@ -99,6 +107,15 @@ export function LocationPickerSheet({
       },
       { timeout: 10000 }
     );
+  }
+
+  async function handleMapClick(lat: number, lng: number) {
+    setIsReverseGeocoding(true);
+    setSelectedLat(lat);
+    setSelectedLng(lng);
+    const city = await reverseGeocode(lat, lng);
+    setSelectedCity(city);
+    setIsReverseGeocoding(false);
   }
 
   async function handleSave() {
@@ -119,6 +136,8 @@ export function LocationPickerSheet({
       setIsSaving(false);
     }
   }
+
+  const hasLocation = selectedLat !== null && selectedLng !== null;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -141,7 +160,7 @@ export function LocationPickerSheet({
               variant="outline"
               className="w-full"
               onClick={handleGps}
-              disabled={isGpsLoading}
+              disabled={isGpsLoading || isReverseGeocoding}
             >
               {isGpsLoading ? (
                 <>
@@ -180,6 +199,40 @@ export function LocationPickerSheet({
 
           <Separator />
 
+          {/* Map — always visible, clickable */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Karte</p>
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <MousePointer2 className="h-3 w-3" />
+                Klicken zum Setzen
+              </span>
+            </div>
+            <LocationMap
+              lat={hasLocation ? selectedLat! : DEFAULT_LAT}
+              lng={hasLocation ? selectedLng! : DEFAULT_LNG}
+              radiusKm={selectedRadius}
+              showPin={hasLocation}
+              onMapClick={handleMapClick}
+              scrollWheelZoom
+              className="h-56 w-full rounded-md z-0"
+            />
+            <p className="text-xs text-muted-foreground text-center min-h-[1rem]">
+              {isReverseGeocoding ? (
+                <span className="flex items-center justify-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Ort wird ermittelt...
+                </span>
+              ) : hasLocation ? (
+                `${selectedCity ?? "Standort"} • ${formatRadius(selectedRadius)} Radius`
+              ) : (
+                "Klicke auf die Karte oder nutze GPS / Suche"
+              )}
+            </p>
+          </div>
+
+          <Separator />
+
           {/* Radius Selection */}
           <div className="space-y-3">
             <p className="text-sm font-medium">Suchradius</p>
@@ -199,17 +252,6 @@ export function LocationPickerSheet({
             </div>
           </div>
 
-          {/* Map Preview */}
-          {selectedLat !== null && selectedLng !== null && (
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Vorschau</p>
-              <LocationMap lat={selectedLat} lng={selectedLng} radiusKm={selectedRadius} />
-              <p className="text-xs text-muted-foreground text-center">
-                {selectedCity ?? "Standort"} • {formatRadius(selectedRadius)} Radius
-              </p>
-            </div>
-          )}
-
           {/* Save Error */}
           {saveError && (
             <Alert variant="destructive">
@@ -222,7 +264,7 @@ export function LocationPickerSheet({
           <Button
             className="w-full"
             onClick={handleSave}
-            disabled={selectedLat === null || selectedLng === null || isSaving}
+            disabled={!hasLocation || isSaving || isReverseGeocoding}
           >
             {isSaving ? (
               <>
