@@ -7,6 +7,7 @@ import { LogOut, Loader2, Trash2, User, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LocationBadge } from "@/components/location/location-badge";
 import { useLocation } from "@/hooks/use-location";
+import { RADIUS_OPTIONS, formatRadius } from "@/lib/location";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,13 +33,6 @@ const LocationMap = dynamic(
     loading: () => <div className="h-full w-full bg-muted animate-pulse" />,
   }
 );
-
-const RADIUS_OPTIONS = [0.1, 0.25, 0.5, 1, 5, 20, 100] as const;
-
-function formatRadius(km: number): string {
-  if (km < 1) return `${Math.round(km * 1000)}m`;
-  return `${km} km`;
-}
 
 interface DashboardContentProps {
   userEmail: string;

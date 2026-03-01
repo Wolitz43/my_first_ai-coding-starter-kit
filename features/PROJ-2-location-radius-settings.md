@@ -1,8 +1,8 @@
 # PROJ-2: Standort & Radius-Einstellung
 
-## Status: Planned
+## Status: In Review
 **Created:** 2026-02-22
-**Last Updated:** 2026-02-22
+**Last Updated:** 2026-03-01
 
 ## Dependencies
 - Requires: PROJ-1 (User Authentication) — Standort-Präferenzen werden pro Account gespeichert
@@ -10,7 +10,7 @@
 ## User Stories
 - Als User möchte ich meinen Standort automatisch per GPS ermitteln lassen, damit ich sofort relevante Inhalte in meiner Nähe sehe.
 - Als User möchte ich meinen Standort manuell als Stadt oder PLZ eingeben können, falls ich kein GPS erlauben möchte.
-- Als User möchte ich den Suchradius (1–100 km) selbst einstellen können, damit ich die Reichweite der Ergebnisse kontrolliere.
+- Als User möchte ich den Suchradius (100m–100km) selbst einstellen können, damit ich die Reichweite der Ergebnisse kontrolliere.
 - Als User möchte ich meinen zuletzt genutzten Standort gespeichert haben, damit ich ihn beim nächsten Besuch nicht erneut eingeben muss.
 - Als User möchte ich den Standort jederzeit ändern können, um auch andere Städte zu erkunden.
 
@@ -19,10 +19,10 @@
 - [ ] Bei Ablehnung der GPS-Berechtigung wird automatisch zur manuellen Eingabe gewechselt
 - [ ] Manuelle Eingabe per Stadt (Autocomplete) oder PLZ funktioniert
 - [ ] Eingabe wird auf gültige Orte validiert (kein Freitext-Missbrauch)
-- [ ] Radius-Slider von 1–100 km mit Schritten (1, 5, 10, 25, 50, 100 km)
-- [ ] Standardradius: 10 km
+- [ ] Radius-Auswahl mit Schritten: 100m, 250m, 500m, 1 km, 5 km, 20 km, 100 km
+- [ ] Standardradius: 1 km
 - [ ] Einstellungen werden im User-Profil gespeichert (nicht nur Session)
-- [ ] Standort + Radius werden sichtbar in der UI angezeigt (z.B. "München • 10 km")
+- [ ] Standort + Radius werden sichtbar in der UI angezeigt (z.B. "München • 1 km" oder "München • 250m")
 - [ ] Einstellungen können jederzeit über ein Icon/Button geändert werden
 
 ## Edge Cases
@@ -127,104 +127,177 @@ src/components/location/
 
 Kein weiteres npm-Paket nötig — Nominatim ist REST-API, Browser Geolocation ist nativ.
 
-## QA Test Results
+## QA Test Results (Re-Test Round 2)
 
-**Tested:** 2026-02-28
+**Tested:** 2026-03-01
 **App URL:** http://localhost:3000
 **Tester:** QA Engineer (AI)
-**Build Status:** Compiles successfully (Next.js production build passes, 15 routes)
+**Build Status:** Compiles successfully (Next.js production build passes, 16 routes)
+**Previous QA Round:** 2026-02-28 (11 bugs found, 2 High / 4 Medium / 5 Low)
 
 ---
 
-### Acceptance Criteria Status
+### Bugs Fixed Since Last QA Round
+
+| Bug | Status | Verification |
+|-----|--------|-------------|
+| BUG-3 (High): saveLocation no error handling | FIXED | `saveLocation` now throws on Supabase error (line 74-76 in use-location.ts). `handleSave` in location-picker-sheet.tsx has try/catch/finally (lines 110-127). Error message shown to user. |
+| BUG-4 (High): No SQL migration files | FIXED | Two migration files now exist: `20260228000001_add_location_to_profiles.sql` and `20260301000001_change_location_radius_to_numeric.sql`. |
+| BUG-10 (Low): Lat/Lng 0 rejected as falsy | FIXED | `handleSave` now uses `selectedLat === null || selectedLng === null` instead of `!selectedLat || !selectedLng` (line 111). Save button disabled check also uses `=== null` (line 231). |
+
+---
+
+### New Issues Introduced Since Last QA Round
+
+The following changes introduced new deviations from the spec:
+
+#### NEW-BUG-1: Radius-Optionen weichen stark von Spec ab
+- **Severity:** Medium
+- **Files:** `src/components/location/location-picker-sheet.tsx` (line 27), `src/components/auth/dashboard-content.tsx` (line 36)
+- **Steps to Reproduce:**
+  1. Open the location picker sheet or look at the radius toolbar on the dashboard
+  2. Expected per spec (AC-5): Radius steps of 1, 5, 10, 25, 50, 100 km
+  3. Actual: Radius options are `[0.1, 0.25, 0.5, 1, 5, 20, 100]` (100m, 250m, 500m, 1km, 5km, 20km, 100km)
+  4. Steps 10, 25, 50 km are missing. Steps 0.1, 0.25, 0.5, 20 km were added without spec update.
+- **Note:** Sub-km options are a nice feature addition, but the spec was not updated to reflect this. Missing 10/25/50 km options limit usability for broader searches.
+- **Priority:** Update spec to match implementation, or restore missing values
+
+#### NEW-BUG-2: Standardradius ist 1 km statt 10 km (AC-6 Verletzung)
+- **Severity:** Medium
+- **Files:** `src/hooks/use-location.ts` (line 18, line 45), `supabase/migrations/20260301000001_change_location_radius_to_numeric.sql` (line 8)
+- **Steps to Reproduce:**
+  1. Log in as a new user who has never set a location
+  2. Expected per spec (AC-6): Default radius is 10 km
+  3. Actual: Default radius is 1 km. The `useLocation` hook initializes `radiusKm: 1` (line 18). The fallback is `data.location_radius_km ?? 1` (line 45). The SQL migration changes the DB default to 1 (line 8).
+- **Spec Requirement:** "Standardradius: 10 km"
+- **Priority:** Fix before deployment or update spec
+
+#### NEW-BUG-3: Leaflet Marker-Icons von externem CDN (unpkg.com)
+- **Severity:** Medium (Security/Reliability)
+- **File:** `src/components/location/location-map.tsx` (lines 9-16)
+- **Steps to Reproduce:**
+  1. Open the dashboard with a location set
+  2. Map loads and marker icon is fetched from `https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png`
+  3. If unpkg.com is down or blocked (e.g., corporate firewall), the marker icon fails to load
+- **Security concern:** Loading assets from third-party CDN (unpkg.com) introduces a supply-chain risk. If unpkg.com were compromised, arbitrary content could be served. The Leaflet CSS (`leaflet/dist/leaflet.css`) is correctly bundled locally, but marker images are not.
+- **Recommendation:** Bundle marker icon images locally in `/public/` directory
+- **Priority:** Fix before deployment
+
+#### NEW-BUG-4: Duplikation von RADIUS_OPTIONS und formatRadius
+- **Severity:** Low (Code quality)
+- **Files:** `src/components/location/location-picker-sheet.tsx` (lines 27-32), `src/components/auth/dashboard-content.tsx` (lines 36-41)
+- **Description:** `RADIUS_OPTIONS` array and `formatRadius` function are defined identically in two files. If one is updated without the other, the picker sheet and dashboard toolbar will show different radius options.
+- **Priority:** Fix in next sprint (extract to shared constant)
+
+#### NEW-BUG-5: Radius-Toolbar speichert direkt ohne Bestaetigung
+- **Severity:** Low (UX)
+- **File:** `src/components/auth/dashboard-content.tsx` (lines 85-93)
+- **Description:** Clicking a radius button in the dashboard toolbar immediately calls `saveLocation` to Supabase. No confirmation, no undo. Accidental clicks save immediately. The picker sheet at least requires clicking "Standort speichern".
+- **Priority:** Nice to have (consider debounce or undo)
+
+#### NEW-BUG-6: Impressum-Seite nicht in Middleware Public Routes
+- **Severity:** Medium (Regression on PROJ-1 area)
+- **File:** `src/lib/supabase/middleware.ts` (line 41)
+- **Steps to Reproduce:**
+  1. Log out of the application
+  2. Navigate directly to `/impressum`
+  3. Expected: Impressum page loads (legal requirement -- Impressum must be publicly accessible under German TMG law)
+  4. Actual: Middleware redirects to `/login` because `/impressum` is not in `publicRoutes` array
+- **Legal concern:** Under German TMG Section 5, the Impressum must be easily accessible from every page, including for non-authenticated users
+- **Priority:** Fix before deployment (legal requirement)
+
+---
+
+### Acceptance Criteria Status (Re-Test)
 
 #### AC-1: Browser-Geolocation wird beim ersten Aufruf angefragt (mit erklaerender Meldung)
-- [ ] BUG: Geolocation is NOT requested automatically on first visit. User must manually click "Meinen Standort verwenden" button.
-- [ ] BUG: There is no explanatory message shown before the browser permission prompt. The spec requires "mit erklaerender Meldung".
-- **Status: FAIL** (see BUG-1)
+- [ ] BUG: Still NOT fixed. Geolocation is NOT requested automatically on first visit. User must manually click LocationBadge, then click "Meinen Standort verwenden".
+- [ ] BUG: Still no explanatory message before the browser permission prompt.
+- **Status: FAIL** (same as previous round -- BUG-1 still open)
 
 #### AC-2: Bei Ablehnung der GPS-Berechtigung wird automatisch zur manuellen Eingabe gewechselt
-- [x] When GPS permission is denied, error message shows: "GPS-Berechtigung verweigert. Bitte Standort manuell eingeben."
-- [x] Manual input section is always visible below GPS section, so user can immediately use it
-- [x] When `navigator.geolocation` is unavailable, error shows: "GPS ist in diesem Browser nicht verfuegbar."
+- [x] GPS denial shows: "GPS-Berechtigung verweigert. Bitte Standort manuell eingeben."
+- [x] Manual input always visible below GPS section
+- [x] `navigator.geolocation` unavailable shows: "GPS ist in diesem Browser nicht verfuegbar."
 - **Status: PASS**
 
 #### AC-3: Manuelle Eingabe per Stadt (Autocomplete) oder PLZ funktioniert
-- [x] Search field with placeholder "Stadt oder PLZ eingeben..." exists
-- [x] Autocomplete queries Nominatim after 500ms debounce
+- [x] Search field with placeholder "Stadt oder PLZ eingeben..."
+- [x] 500ms debounce before Nominatim query
 - [x] Results show city name with subtitle context
 - [x] Selecting a result sets lat/lng/city
-- [x] `encodeURIComponent` used to safely encode query for URL
+- [x] `encodeURIComponent` used for safe URL encoding
 - [x] `limit=5` constrains results
 - **Status: PASS**
 
 #### AC-4: Eingabe wird auf gueltige Orte validiert (kein Freitext-Missbrauch)
-- [x] Only results from Nominatim geocoding API can be selected (no arbitrary text accepted as location)
-- [x] User cannot type free text and save it directly -- the save button requires lat/lng to be set
-- [ ] BUG: No server-side validation of location data. User can save arbitrary lat/lng/city values via Supabase client. (see BUG-5)
+- [x] Only Nominatim results can be selected as locations
+- [x] Save button requires lat/lng to be set (cannot save arbitrary text)
+- [ ] BUG: Still no server-side validation. (BUG-5 still open)
 - **Status: PARTIAL PASS**
 
 #### AC-5: Radius-Slider von 1-100 km mit Schritten (1, 5, 10, 25, 50, 100 km)
-- [x] Radius options 1, 5, 10, 25, 50, 100 km are available
-- [ ] BUG: Implementation uses a button grid instead of a Slider component as specified. The spec says "Radius-Slider" and tech design says "shadcn/ui Slider". (see BUG-2)
-- [x] Selected radius is visually highlighted with `variant="default"` vs `variant="outline"`
-- [x] `aria-pressed` attribute set for accessibility
-- **Status: PARTIAL PASS** (functional but deviates from spec)
+- [ ] BUG: Radius options changed to [0.1, 0.25, 0.5, 1, 5, 20, 100] -- missing 10, 25, 50 km from spec. (see NEW-BUG-1)
+- [ ] BUG: Still uses button grid instead of slider component. (BUG-2 still open)
+- [x] Selected radius visually highlighted
+- [x] `aria-pressed` set for accessibility
+- **Status: FAIL** (spec deviation worsened since last round)
 
 #### AC-6: Standardradius: 10 km
-- [x] `useLocation` hook initializes `radiusKm: 10` as default
-- [x] Database column `location_radius_km` falls back to 10 via `data.location_radius_km ?? 10`
-- **Status: PASS**
+- [ ] BUG: Default radius changed from 10 km to 1 km. Hook initializes `radiusKm: 1`, DB default is 1. (see NEW-BUG-2)
+- **Status: FAIL** (was PASS in previous round -- regression)
 
 #### AC-7: Einstellungen werden im User-Profil gespeichert (nicht nur Session)
-- [x] `saveLocation` updates `profiles` table via Supabase with `location_lat`, `location_lng`, `location_city`, `location_radius_km`
-- [x] `fetchLocation` reads from `profiles` table on mount
-- [ ] BUG: No error handling on Supabase update response. If save fails, local state is updated anyway, showing incorrect data. (see BUG-3)
-- [ ] BUG: No SQL migration files found for location columns. If columns do not exist in Supabase, feature silently fails. (see BUG-4)
-- **Status: PARTIAL PASS**
+- [x] `saveLocation` updates profiles table with all location fields
+- [x] `fetchLocation` reads from profiles table on mount
+- [x] FIXED: Error handling now works -- `saveLocation` throws on Supabase error, `handleSave` catches and shows error message (BUG-3 fixed)
+- [x] FIXED: SQL migration files now exist (BUG-4 fixed)
+- **Status: PASS** (improved from PARTIAL PASS)
 
 #### AC-8: Standort + Radius werden sichtbar in der UI angezeigt
-- [x] `LocationBadge` displays "City . Radius km" format (e.g., "Muenchen . 10 km")
-- [x] If no city is set, shows "Standort setzen" as placeholder
-- [x] Loading state shows Skeleton component
-- [x] MapPin icon and ChevronDown indicator present
+- [x] LocationBadge displays "City . Radius" format with sub-km support (e.g., "100m" for 0.1 km)
+- [x] "Standort setzen" placeholder when no city set
+- [x] Loading state shows Skeleton
+- [x] MapPin icon and ChevronDown present
+- [x] NEW: Interactive map preview in picker sheet shows location and radius circle
+- [x] NEW: Full-page map on dashboard when location is set
 - **Status: PASS**
 
 #### AC-9: Einstellungen koennen jederzeit ueber ein Icon/Button geaendert werden
-- [x] `LocationBadge` is clickable and opens `LocationPickerSheet`
-- [x] Badge is placed in dashboard header, always accessible
-- [x] `aria-label="Standort aendern"` for accessibility
+- [x] LocationBadge clickable, opens LocationPickerSheet
+- [x] Badge in dashboard header, always accessible
+- [x] `aria-label="Standort aendern"` set
+- [x] NEW: Radius toolbar on dashboard allows quick radius changes without opening sheet
 - **Status: PASS**
 
-### Acceptance Criteria Summary: 5/9 PASSED, 1 FAILED, 3 PARTIAL PASS
+### Acceptance Criteria Summary: 5/9 PASSED, 2 FAILED, 2 PARTIAL PASS
+
+Note: AC-6 regressed from PASS to FAIL. AC-5 worsened from PARTIAL PASS to FAIL.
 
 ---
 
-### Edge Cases Status
+### Edge Cases Status (Re-Test)
 
 #### EC-1: GPS nicht verfuegbar (Desktop ohne Location-Service)
-- [x] `navigator.geolocation` availability is checked before calling
-- [x] Error message "GPS ist in diesem Browser nicht verfuegbar" shown
-- [x] Manual input section is always visible as fallback
+- [x] `navigator.geolocation` check present
+- [x] Error message shown
+- [x] Manual input as fallback
 - **Status: PASS**
 
 #### EC-2: Ungueltige PLZ / Ort nicht gefunden
-- [x] If Nominatim returns no results, dropdown simply does not appear
-- [ ] BUG: No explicit error message shown to user when no results found. User types "xyzabc123" and gets no feedback. (see BUG-6)
+- [ ] BUG: Still no "Kein Ort gefunden" message. (BUG-6 still open)
 - **Status: FAIL**
 
 #### EC-3: User befindet sich ausserhalb Deutschlands
-- [x] Nominatim search is not restricted to Germany (`countrycodes` parameter not set)
-- [x] `Accept-Language: de` is set but does not limit results to Germany
+- [x] No country restriction on Nominatim search
 - **Status: PASS**
 
 #### EC-4: GPS-Koordinaten sehr ungenau (+/-500m)
-- [x] No accuracy check on `pos.coords` -- coordinates are used as-is regardless of accuracy
-- [x] This means inaccurate GPS still works without error
+- [x] No accuracy check -- coordinates used as-is
 - **Status: PASS**
 
 #### EC-5: User gibt Standort ein, ist aber nicht eingeloggt
-- [ ] BUG: Spec requires "Standort wird in Session gespeichert, nach Login uebernommen". The implementation simply returns early (`if (!user) return;`) in `saveLocation`. No session/localStorage fallback exists. Non-logged-in users cannot save their location at all. (see BUG-7)
+- [ ] BUG: Still no session/localStorage fallback. (BUG-7 still open)
 - **Status: FAIL**
 
 ### Edge Cases Summary: 3/5 PASSED, 2 FAILED
@@ -234,211 +307,146 @@ Kein weiteres npm-Paket nötig — Nominatim ist REST-API, Browser Geolocation i
 ### Security Audit Results (Red Team Perspective)
 
 #### Authentication
-- [x] LocationBadge only renders on authenticated dashboard page (protected by middleware + server component)
-- [x] `useLocation` hook checks `supabase.auth.getUser()` before reading/writing profile data
-- [x] If no user, `saveLocation` returns early without writing
+- [x] Dashboard protected by server component auth check + middleware redirect
+- [x] `useLocation` checks `supabase.auth.getUser()` before DB operations
+- [x] `saveLocation` returns early without writing if no user
 
 #### Authorization (IDOR / Data Access)
-- [x] Profile read uses `.eq("id", user.id)` -- cannot read other users' location
-- [x] Profile update uses `.eq("id", user.id)` -- cannot update other users' location
-- [ ] BUG: Relies solely on client-side filtering. RLS policies must be verified in Supabase dashboard. No SQL migration files exist in the repo to verify RLS is correctly configured for the new columns. (see BUG-8)
+- [x] Profile read uses `.eq("id", user.id)`
+- [x] Profile update uses `.eq("id", user.id)`
+- [ ] BUG: RLS policies still not documented in migration files. (BUG-8 still open)
 
 #### Input Validation (Server-Side)
-- [ ] BUG: No server-side validation. Location data goes directly from client to Supabase. An attacker with browser DevTools could craft arbitrary Supabase client calls to set `location_lat` to any value (e.g., 999999), `location_city` to a very long string, or `location_radius_km` to a negative number or extremely large value. (see BUG-5)
+- [ ] BUG: Still no server-side validation of location data. (BUG-5 still open)
+- [ ] BUG: New `numeric(6,3)` column type for radius provides some implicit validation (max 999.999), but no CHECK constraint for valid range. Negative values still accepted by DB.
 
 #### XSS
-- [x] `location_city` is rendered via React JSX (auto-escaped), no `dangerouslySetInnerHTML`
-- [x] Nominatim response `display_name` is rendered safely via React
+- [x] All user data rendered via React JSX (auto-escaped)
+- [x] No `dangerouslySetInnerHTML` usage
 
-#### External API Abuse (Nominatim)
-- [x] 500ms debounce implemented to respect Nominatim rate limit (1 req/s)
-- [ ] BUG: No request-level rate limiting beyond debounce. A malicious user could bypass the UI debounce and call Nominatim directly from DevTools rapidly, potentially getting the app's IP banned from Nominatim. However, since calls go directly from browser, this affects only the individual user's IP. (see BUG-9 -- Low severity)
+#### Supply Chain / Third-Party Dependencies
+- [ ] BUG: Marker icons loaded from external CDN (unpkg.com). (see NEW-BUG-3)
+- [x] Leaflet CSS bundled locally (correct)
+- [x] OpenStreetMap tiles loaded over HTTPS
 
 #### Secrets Management
-- [x] No new secrets introduced. Nominatim requires no API key.
-- [x] Supabase credentials already managed via environment variables
+- [x] No new secrets introduced
+- [x] Nominatim requires no API key
 
 #### Data Exposure
-- [x] Location data in API responses only includes current user's profile
-- [x] No endpoint leaks other users' location data
+- [x] Location data only accessible for current user's profile
+- [x] No endpoint leaks other users' locations
 
 ---
 
 ### Cross-Browser Testing (Code Review)
 
-- [x] `navigator.geolocation` is a standard Web API supported in Chrome, Firefox, Safari
-- [x] `fetch` API used for Nominatim calls -- universally supported
-- [x] shadcn/ui components (Sheet, Button, Input, Alert) are cross-browser compatible
+- [x] `navigator.geolocation` supported in Chrome, Firefox, Safari
+- [x] `fetch` API universally supported
+- [x] shadcn/ui components cross-browser compatible
+- [x] Leaflet/react-leaflet cross-browser compatible (uses standard DOM APIs)
+- [x] `dynamic(() => import(...), { ssr: false })` correctly prevents Leaflet SSR issues
 - [x] No browser-specific CSS or APIs used
-- Note: Full manual testing in all three browsers requires running app in each. Code review shows no compatibility concerns.
 
 ### Responsive Testing (Code Review)
 
-- [x] Sheet uses `w-full sm:max-w-md` -- full width on mobile, max 448px on tablet/desktop
-- [x] LocationBadge uses compact `size="sm"` and `h-8` -- fits in mobile headers
-- [x] Radius buttons use `grid grid-cols-3` -- 3 columns work well at 375px+
-- [x] All inputs are `w-full` -- fills container width
-- [x] `overflow-y-auto` on sheet content handles small viewports
-- Note: Layout should work at 375px, 768px, and 1440px based on Tailwind responsive utilities.
+- [x] Sheet uses `w-full sm:max-w-md` -- full width on mobile
+- [x] LocationBadge compact `size="sm"` and `h-8`
+- [x] Radius buttons in sheet use `grid grid-cols-4` -- 4 columns may be tight at 375px with 7 options
+- [x] Dashboard radius toolbar uses `overflow-x-auto` -- scrollable on small screens
+- [x] Map uses `h-full w-full` -- fills available viewport
+- [ ] BUG: Dashboard header uses `bg-white` hardcoded instead of `bg-background`. In dark mode (if added later), header would remain white. (cosmetic, noted for future)
+- [x] LocationMap with `h-48` in sheet is reasonable for small viewports
 
 ---
 
-### Bugs Found
+### All Open Bugs (Consolidated)
 
-#### BUG-1: GPS nicht automatisch beim ersten Aufruf angefragt
-- **Severity:** Medium
-- **Files:** `src/components/location/location-picker-sheet.tsx`, `src/components/location/location-badge.tsx`
-- **Steps to Reproduce:**
-  1. Log in and visit the dashboard for the first time
-  2. Expected: Browser geolocation permission is requested automatically with an explanatory message
-  3. Actual: Nothing happens. User must click the LocationBadge, then click "Meinen Standort verwenden"
-- **Spec Requirement:** "Browser-Geolocation wird beim ersten Aufruf angefragt (mit erklaerender Meldung)"
-- **Priority:** Fix before deployment
+#### From Previous Round (Still Open)
 
-#### BUG-2: Radius uses button grid instead of Slider component
-- **Severity:** Low
-- **Files:** `src/components/location/location-picker-sheet.tsx` (lines 169-185)
-- **Steps to Reproduce:**
-  1. Open the location picker sheet
-  2. Expected: A slider component for radius selection (as specified in AC-5 and tech design)
-  3. Actual: A 3x2 grid of buttons with predefined values
-- **Note:** Functionally equivalent since the spec defines fixed steps (1, 5, 10, 25, 50, 100 km). The slider component (`shadcn/ui slider`) is listed in tech design but was never installed (not in `src/components/ui/`). Button grid is arguably better UX for discrete steps.
-- **Priority:** Nice to have (discuss with product whether spec should be updated)
+| ID | Title | Severity | Status |
+|----|-------|----------|--------|
+| BUG-1 | GPS nicht automatisch beim ersten Aufruf angefragt | Medium | Still open |
+| BUG-2 | Radius uses button grid instead of Slider | Low | Still open (spec deviation) |
+| BUG-5 | Keine serverseitige Validierung der Standortdaten | Medium | Still open |
+| BUG-6 | Keine Fehlermeldung bei Suche ohne Ergebnisse | Low | Still open |
+| BUG-7 | Kein Session-Speicher fuer nicht eingeloggte User | Medium | Still open |
+| BUG-8 | RLS-Policies nicht verifizierbar | Medium | Still open |
+| BUG-9 | Nominatim-Aufrufe ohne serverseitiges Rate-Limiting | Low | Still open |
+| BUG-11 | Keine Keyboard-Navigation in Autocomplete | Low | Still open |
 
-#### BUG-3: saveLocation hat kein Error-Handling
-- **Severity:** High
-- **File:** `src/hooks/use-location.ts` (lines 55-75)
-- **Steps to Reproduce:**
-  1. Open location picker and select a location
-  2. Simulate network error or Supabase outage (e.g., disable network in DevTools)
-  3. Click "Standort speichern"
-  4. Expected: Error message shown, location not updated in UI
-  5. Actual: `setLocation(newLocation)` on line 74 runs regardless of whether Supabase update succeeded. UI shows the new location even though it was never saved to the database. On next page load, the old (or no) location reappears.
-- **Additional issue:** `handleSave` in `location-picker-sheet.tsx` (line 95-106) also has no try/catch. If `onSave` throws, `isSaving` stays `true` forever and the sheet never closes.
-- **Priority:** Fix before deployment
+#### New Bugs Found This Round
 
-#### BUG-4: Keine SQL-Migrationsdateien fuer location-Spalten
-- **Severity:** High
-- **Steps to Reproduce:**
-  1. Search project for SQL migration files: none found (`**/*.sql` returns 0 results)
-  2. Expected: Migration file adding `location_lat`, `location_lng`, `location_city`, `location_radius_km` columns to `profiles` table
-  3. Actual: No migration files exist. Developer must have added columns manually in Supabase dashboard.
-- **Impact:** Feature cannot be reproduced in a fresh environment. New developers or CI/CD pipelines cannot set up the database schema. If columns do not exist in Supabase, all location operations silently fail (Supabase returns error but `saveLocation` does not check it -- see BUG-3).
-- **Priority:** Fix before deployment
+| ID | Title | Severity | Priority |
+|----|-------|----------|----------|
+| NEW-BUG-1 | Radius-Optionen weichen stark von Spec ab (missing 10/25/50 km) | Medium | Fix before deployment or update spec |
+| NEW-BUG-2 | Standardradius 1 km statt 10 km (AC-6 regression) | Medium | Fix before deployment |
+| NEW-BUG-3 | Leaflet Marker-Icons von externem CDN (unpkg.com) | Medium | Fix before deployment |
+| NEW-BUG-4 | Duplikation von RADIUS_OPTIONS und formatRadius | Low | Fix in next sprint |
+| NEW-BUG-5 | Radius-Toolbar speichert direkt ohne Bestaetigung | Low | Nice to have |
+| NEW-BUG-6 | Impressum-Seite nicht in Middleware Public Routes | Medium | Fix before deployment (legal) |
 
-#### BUG-5: Keine serverseitige Validierung der Standortdaten
-- **Severity:** Medium
-- **File:** `src/hooks/use-location.ts` (lines 55-75)
-- **Steps to Reproduce:**
-  1. Open browser DevTools console on the dashboard page
-  2. Create a Supabase client and call `profiles.update()` directly with:
-     - `location_lat: 999999` (invalid latitude)
-     - `location_city: "<script>alert('xss')</script>"` (XSS attempt)
-     - `location_radius_km: -500` (negative radius)
-  3. Expected: Server rejects invalid values
-  4. Actual: Data is saved as-is to the profiles table (only RLS user-id check applies, not value validation)
-- **Note:** XSS via `location_city` is mitigated by React's auto-escaping, but invalid coordinates and radius could break downstream features (PROJ-5 Discovery-Feed).
-- **Priority:** Fix before deployment
+#### Fixed Bugs (Verified)
 
-#### BUG-6: Keine Fehlermeldung bei Suche ohne Ergebnisse
-- **Severity:** Low
-- **File:** `src/components/location/location-autocomplete.tsx`
-- **Steps to Reproduce:**
-  1. Open location picker and type "xyzabc123" in the search field
-  2. Expected: Message like "Kein Ort gefunden" after search completes
-  3. Actual: Search spinner appears, then disappears. No dropdown, no message. User gets no feedback.
-- **Priority:** Fix in next sprint
-
-#### BUG-7: Kein Session-Speicher fuer nicht eingeloggte User
-- **Severity:** Medium
-- **File:** `src/hooks/use-location.ts` (lines 29-31, 61-62)
-- **Steps to Reproduce:**
-  1. As specified edge case: User enters a location while not logged in
-  2. Expected per spec: "Standort wird in Session gespeichert, nach Login uebernommen"
-  3. Actual: `saveLocation` returns early with `if (!user) return;`. No localStorage or sessionStorage fallback exists. Location input is completely lost.
-- **Note:** Currently the LocationBadge is only rendered on the authenticated dashboard, so non-logged-in users cannot reach it. But the spec explicitly requires this behavior, and future pages may show the LocationBadge before login.
-- **Priority:** Fix before deployment (if non-auth pages will use LocationBadge) or update spec to remove this requirement
-
-#### BUG-8: RLS-Policies fuer location-Spalten nicht verifizierbar
-- **Severity:** Medium
-- **Steps to Reproduce:**
-  1. Search project for RLS policy definitions: no SQL files found
-  2. Expected: RLS policies documented or in migration files ensuring users can only read/write their own location data
-  3. Actual: No SQL files exist in the repo. RLS policies may or may not be configured in Supabase dashboard.
-- **Note:** The code uses `.eq("id", user.id)` which provides client-side filtering, but without RLS a malicious user could bypass this by crafting direct Supabase queries.
-- **Priority:** Verify in Supabase dashboard and document in migration files
-
-#### BUG-9: Nominatim-Aufrufe ohne serverseitiges Rate-Limiting
-- **Severity:** Low
-- **File:** `src/components/location/location-autocomplete.tsx`
-- **Steps to Reproduce:**
-  1. A malicious user could call Nominatim API directly from browser DevTools without the 500ms debounce
-  2. Since calls go from the user's browser directly to Nominatim (not through backend), this only affects that user's IP
-- **Impact:** Low -- only the individual abuser gets blocked by Nominatim
-- **Priority:** Nice to have
-
-#### BUG-10: Latitude/Longitude 0 wird faelschlicherweise als falsy abgelehnt
-- **Severity:** Low
-- **File:** `src/components/location/location-picker-sheet.tsx` (lines 96, 201)
-- **Steps to Reproduce:**
-  1. Set location to latitude 0, longitude 0 (Gulf of Guinea, valid coordinates)
-  2. `handleSave` checks `if (!selectedLat || !selectedLng) return;`
-  3. Expected: Location (0, 0) can be saved
-  4. Actual: Falsy check rejects `0` values. Save button is disabled.
-- **Impact:** Very unlikely real-world scenario but indicates a code quality issue with falsy vs null checks.
-- **Priority:** Nice to have
-
-#### BUG-11: Keine Keyboard-Navigation in Autocomplete-Dropdown
-- **Severity:** Low
-- **File:** `src/components/location/location-autocomplete.tsx`
-- **Steps to Reproduce:**
-  1. Type a city name in the search field
-  2. Try to navigate results with arrow keys or select with Enter
-  3. Expected: Keyboard navigation works (standard autocomplete behavior, WCAG requirement)
-  4. Actual: No keyboard event handlers. Only mouse click/tap works.
-- **Note:** `role="listbox"` and `role="option"` are set but without keyboard handlers they are incomplete ARIA implementations.
-- **Priority:** Fix in next sprint (accessibility)
+| ID | Title | Severity | Status |
+|----|-------|----------|--------|
+| BUG-3 | saveLocation kein Error-Handling | High | FIXED and verified |
+| BUG-4 | Keine SQL-Migrationsdateien | High | FIXED and verified |
+| BUG-10 | Lat/Lng 0 falsy-Ablehnung | Low | FIXED and verified |
 
 ---
 
 ### Regression Testing (PROJ-1: User Authentication)
 
-- [x] Dashboard page still loads with user email and display name
-- [x] LocationBadge added to header does not break existing layout
-- [x] Logout button still functional
-- [x] Delete account dialog still present
-- [x] Build compiles without errors (all 15 routes)
-- **Status: No regressions found**
+- [x] Dashboard page loads with user email and display name
+- [x] LocationBadge in header does not break existing layout
+- [x] Logout button functional (via dropdown menu)
+- [x] Delete account dialog present and functional
+- [x] Build compiles without errors (16 routes, up from 15)
+- [ ] BUG: `/impressum` not accessible without authentication (NEW-BUG-6)
+- **Status: 1 regression found (Impressum route)**
 
 ---
 
 ### Summary
 
-| Category | Result |
-|----------|--------|
-| **Acceptance Criteria** | 5/9 PASSED, 1 FAILED, 3 PARTIAL |
-| **Edge Cases** | 3/5 PASSED, 2 FAILED |
-| **Bugs Found** | 11 total (0 Critical, 2 High, 4 Medium, 5 Low) |
-| **Security Audit** | 2 issues (no server-side validation, RLS unverifiable) |
-| **Regression (PROJ-1)** | No regressions |
-| **Build** | Compiles successfully |
+| Category | Result | Change vs Previous |
+|----------|--------|-------------------|
+| **Acceptance Criteria** | 5/9 PASSED, 2 FAILED, 2 PARTIAL | Worse (AC-5 and AC-6 regressed) |
+| **Edge Cases** | 3/5 PASSED, 2 FAILED | Same |
+| **Bugs Fixed** | 3 (2 High, 1 Low) | Improvement |
+| **Bugs Still Open** | 8 from previous round | Still open |
+| **New Bugs Found** | 6 (4 Medium, 2 Low) | New issues introduced |
+| **Total Open Bugs** | 14 (0 Critical, 0 High, 8 Medium, 6 Low) | Was 11, now 14 |
+| **Security Audit** | 3 issues (no validation, RLS unverifiable, CDN dependency) | Worse (+1) |
+| **Regression (PROJ-1)** | 1 regression (Impressum) | Worse |
+| **Build** | Compiles successfully | Same |
 
 ### Production Ready: NO
 
-**Reason:** 2 High-severity and 4 Medium-severity bugs must be addressed:
-- BUG-3 (High): No error handling in saveLocation -- UI shows unsaved data
-- BUG-4 (High): No SQL migration files -- feature not reproducible
-- BUG-1 (Medium): GPS not requested automatically on first visit (spec violation)
-- BUG-5 (Medium): No server-side validation of location data
-- BUG-7 (Medium): No session storage for non-logged-in users (spec violation)
-- BUG-8 (Medium): RLS policies not verifiable from repo
+**Reason:** 8 Medium-severity bugs remain, including spec regressions and a legal issue:
 
-### Recommended Fix Priority:
-1. BUG-3 + BUG-4 (High) -- Fix first
-2. BUG-5 + BUG-8 (Medium/Security) -- Fix second
-3. BUG-1 + BUG-7 (Medium/Spec) -- Discuss with product whether spec should be updated or code should be changed
-4. BUG-6 + BUG-11 (Low/UX) -- Fix in next sprint
-5. BUG-2 + BUG-9 + BUG-10 (Low) -- Nice to have
+**Must fix before deployment:**
+1. NEW-BUG-2 (Medium): Default radius changed to 1 km -- AC-6 regression
+2. NEW-BUG-6 (Medium): Impressum not publicly accessible -- German TMG legal requirement
+3. NEW-BUG-3 (Medium): External CDN dependency for marker icons -- security/reliability risk
+4. BUG-5 (Medium): No server-side validation of location data
+5. BUG-8 (Medium): RLS policies not verifiable from repo
+
+**Discuss with product (spec vs implementation):**
+6. NEW-BUG-1 (Medium): Radius options deviate from spec (missing 10/25/50 km)
+7. BUG-1 (Medium): GPS not requested automatically on first visit
+8. BUG-7 (Medium): No session storage for non-logged-in users
+
+**Fix in next sprint:**
+9. BUG-6 (Low): No feedback when search returns no results
+10. BUG-11 (Low): No keyboard navigation in autocomplete
+11. NEW-BUG-4 (Low): Duplicated RADIUS_OPTIONS and formatRadius
+
+**Nice to have:**
+12. BUG-2 (Low): Button grid vs slider (spec deviation)
+13. BUG-9 (Low): Nominatim rate limiting bypass
+14. NEW-BUG-5 (Low): Radius toolbar saves without confirmation
 
 ## Deployment
 _To be added by /deploy_

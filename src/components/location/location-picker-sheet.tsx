@@ -23,13 +23,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { LocationAutocomplete } from "./location-autocomplete";
 import type { LocationData } from "@/hooks/use-location";
-
-const RADIUS_OPTIONS = [0.1, 0.25, 0.5, 1, 5, 20, 100] as const;
-
-function formatRadius(km: number): string {
-  if (km < 1) return `${Math.round(km * 1000)}m`;
-  return `${km} km`;
-}
+import { RADIUS_OPTIONS, formatRadius } from "@/lib/location";
 
 interface LocationPickerSheetProps {
   open: boolean;
