@@ -99,11 +99,15 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
       {/* Top Header */}
       <header className="shrink-0 z-40 bg-white border-b">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-3">
-          <span className="text-lg font-bold tracking-tight shrink-0">NearBy</span>
+          <span className="text-lg font-bold tracking-tight shrink-0">Near By Me 24</span>
 
           {/* Centered location badge */}
           <div className="flex-1 flex justify-center">
-            <LocationBadge />
+            <LocationBadge
+              location={location}
+              isLoading={locationLoading}
+              saveLocation={saveLocation}
+            />
           </div>
 
           {/* User menu (right) */}

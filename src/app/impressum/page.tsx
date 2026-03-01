@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 export const metadata = {
-  title: "Impressum – NearByMe24",
+  title: "Impressum – Near By Me 24",
 };
 
 export default function ImpressumPage() {
@@ -29,21 +29,21 @@ export default function ImpressumPage() {
 
         <section className="space-y-1">
           <h2 className="font-semibold text-base">Betreiber</h2>
-          <p>[Arnd Stielow]</p>
-          <p>[Stobäusplatz 2]</p>
-          <p>[93047] [Regensburg]</p>
-          <p>[Deutschland]</p>
+          <p>Arnd Stielow</p>
+          <p>Stobäusplatz 2</p>
+          <p>93047 Regensburg</p>
+          <p>Deutschland</p>
         </section>
 
         <section className="space-y-1">
           <h2 className="font-semibold text-base">Kontakt</h2>
           <p>
-            E-Mail:{"arnd.stielow@onlinehome.de"}
+            E-Mail:{" "}
             <a
-              href="mailto:[deine@email.de]"
+              href="mailto:arnd.stielow@onlinehome.de"
               className="underline underline-offset-2 hover:text-primary"
             >
-              [deine@email.de]
+              arnd.stielow@onlinehome.de
             </a>
           </p>
         </section>
@@ -52,8 +52,8 @@ export default function ImpressumPage() {
           <h2 className="font-semibold text-base">
             Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV
           </h2>
-          <p>[Arnd Stielow]</p>
-          <p>[Adresse wie oben]</p>
+          <p>Arnd Stielow</p>
+          <p>Stobäusplatz 2, 93047 Regensburg</p>
         </section>
 
         <section className="space-y-2">
@@ -95,10 +95,6 @@ export default function ImpressumPage() {
           </p>
         </section>
 
-        <p className="text-xs text-muted-foreground pt-4 border-t">
-          Bitte ersetze die Platzhalter in eckigen Klammern mit deinen echten Angaben,
-          bevor du diese Seite veröffentlichst.
-        </p>
       </main>
     </div>
   );

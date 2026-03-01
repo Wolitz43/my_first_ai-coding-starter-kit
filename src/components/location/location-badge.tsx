@@ -5,11 +5,16 @@ import { MapPin, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LocationPickerSheet } from "./location-picker-sheet";
-import { useLocation } from "@/hooks/use-location";
+import type { LocationData } from "@/hooks/use-location";
 
-export function LocationBadge() {
+interface LocationBadgeProps {
+  location: LocationData;
+  isLoading: boolean;
+  saveLocation: (location: LocationData) => Promise<void>;
+}
+
+export function LocationBadge({ location, isLoading, saveLocation }: LocationBadgeProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
-  const { location, isLoading, saveLocation } = useLocation();
 
   if (isLoading) {
     return <Skeleton className="h-8 w-36" />;

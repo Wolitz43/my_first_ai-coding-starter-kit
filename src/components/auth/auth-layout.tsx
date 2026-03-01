@@ -15,7 +15,7 @@ export function AuthLayout({ children, title, description }: AuthLayoutProps) {
         <div className="mb-8 flex flex-col items-center text-center">
           <div className="mb-3 flex items-center gap-2">
             <MapPin className="h-8 w-8 text-primary" aria-hidden="true" />
-            <span className="text-2xl font-bold tracking-tight">NearBy</span>
+            <span className="text-2xl font-bold tracking-tight">Near By Me 24</span>
           </div>
           <p className="text-sm text-muted-foreground">
             Entdecke, was in deiner N&auml;he passiert

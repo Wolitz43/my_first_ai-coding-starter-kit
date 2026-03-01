@@ -149,7 +149,7 @@ export default function SignupPage() {
   }
 
   return (
-    <AuthLayout title="Konto erstellen" description="Erstelle ein neues NearBy-Konto">
+    <AuthLayout title="Konto erstellen" description="Erstelle ein neues Near By Me 24-Konto">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" autoComplete="off">
           {error && (

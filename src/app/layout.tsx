@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "NearBy - Entdecke, was in deiner Naehe passiert",
-  description: "NearBy hilft dir, Events und Inhalte in deiner Umgebung zu entdecken.",
+  title: "Near By Me 24 - Entdecke, was in deiner Naehe passiert",
+  description: "Near By Me 24 hilft dir, Events und Inhalte in deiner Umgebung zu entdecken.",
 };
 
 export default function RootLayout({
