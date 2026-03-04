@@ -19,14 +19,20 @@ interface NominatimResult {
 
 interface LocationAutocompleteProps {
   onSelect: (lat: number, lng: number, city: string) => void;
+  /** Called with the full display_name from Nominatim (useful for address fields) */
+  onSelectFull?: (lat: number, lng: number, city: string, displayName: string) => void;
   placeholder?: string;
+  /** Initial value to display in the input */
+  defaultValue?: string;
 }
 
 export function LocationAutocomplete({
   onSelect,
+  onSelectFull,
   placeholder = "Stadt oder PLZ eingeben...",
+  defaultValue = "",
 }: LocationAutocompleteProps) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(defaultValue);
   const [results, setResults] = useState<NominatimResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -83,6 +89,7 @@ export function LocationAutocomplete({
   function handleSelect(result: NominatimResult) {
     const city = getDisplayCity(result);
     onSelect(parseFloat(result.lat), parseFloat(result.lon), city);
+    onSelectFull?.(parseFloat(result.lat), parseFloat(result.lon), city, result.display_name);
     setQuery(city);
     setIsOpen(false);
   }

@@ -1,8 +1,8 @@
 # PROJ-3: Event-Erstellung & Verwaltung
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-02-22
-**Last Updated:** 2026-02-22
+**Last Updated:** 2026-03-04
 
 ## Dependencies
 - Requires: PROJ-1 (User Authentication) — nur eingeloggte User können Events erstellen
@@ -45,7 +45,35 @@
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Database
+- Table: `public.events` with RLS enabled
+- Coordinates: `double precision` lat/lng (consistent with profiles)
+- Soft delete: `deleted_at timestamptz` — no physical DELETE
+- `creator_id` → `auth.users(id) ON DELETE SET NULL` (events survive account deletion, shown as "Gelöschter User")
+
+### RLS Policies
+- **SELECT**: All authenticated users can read events where `deleted_at IS NULL`
+- **INSERT**: `auth.uid() = creator_id`
+- **UPDATE**: `auth.uid() = creator_id AND deleted_at IS NULL`
+- No DELETE policy — soft delete via UPDATE
+
+### API Endpoints
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/events` | List events; optional `?lat=&lng=&radius=` filter |
+| POST | `/api/events` | Create event |
+| GET | `/api/events/[id]` | Get single event |
+| PATCH | `/api/events/[id]` | Update event (creator only) |
+| DELETE | `/api/events/[id]` | Soft delete (creator only) |
+
+### Validation (Zod — `src/lib/events.ts`)
+- `createEventSchema` — all required fields
+- `updateEventSchema` — all fields partial, at least one required
+- Radius filter: bounding-box pre-filter (SQL index) + Haversine post-filter (JS)
+
+### Deferred
+- Image upload (Supabase Storage) — next iteration
 
 ## QA Test Results
 _To be added by /qa_
