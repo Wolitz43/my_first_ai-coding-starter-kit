@@ -3,11 +3,9 @@
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { LogOut, Loader2, Trash2, User, MapPin } from "lucide-react";
+import { LogOut, Loader2, Trash2, User, MapPin, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { LocationBadge } from "@/components/location/location-badge";
 import { useLocation } from "@/hooks/use-location";
-import { RADIUS_OPTIONS, formatRadius } from "@/lib/location";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,8 +24,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const LocationMap = dynamic(
-  () => import("@/components/location/location-map").then((m) => m.LocationMap),
+const LocationSidePanel = dynamic(
+  () => import("@/components/location/location-side-panel").then((m) => m.LocationSidePanel),
   {
     ssr: false,
     loading: () => <div className="h-full w-full bg-muted animate-pulse" />,
@@ -44,7 +42,6 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [isSavingRadius, setIsSavingRadius] = useState(false);
 
   const { location, isLoading: locationLoading, saveLocation } = useLocation();
 
@@ -76,35 +73,18 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
     }
   }
 
-  async function handleRadiusChange(km: number) {
-    if (location.lat === null || isSavingRadius) return;
-    setIsSavingRadius(true);
-    try {
-      await saveLocation({ ...location, radiusKm: km });
-    } finally {
-      setIsSavingRadius(false);
-    }
-  }
-
   const hasLocation = location.lat !== null && location.lng !== null;
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Top Header */}
       <header className="shrink-0 z-40 bg-white border-b">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-3">
+        <div className="max-w-full px-4 h-14 flex items-center gap-3">
           <span className="text-lg font-bold tracking-tight shrink-0">Near By Me 24</span>
 
-          {/* Centered location badge */}
-          <div className="flex-1 flex justify-center">
-            <LocationBadge
-              location={location}
-              isLoading={locationLoading}
-              saveLocation={saveLocation}
-            />
-          </div>
+          <div className="flex-1" />
 
-          {/* User menu (right) */}
+          {/* User info + menu (right) */}
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-sm text-muted-foreground hidden sm:inline-block truncate max-w-[160px]">
               {displayName ?? userEmail}
@@ -146,52 +126,66 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
         </div>
       </header>
 
-      {/* Radius Toolbar — only visible when location is set */}
-      {hasLocation && !locationLoading && (
-        <div className="shrink-0 z-30 bg-white border-b px-4 py-2">
-          <div className="max-w-6xl mx-auto flex items-center gap-2 overflow-x-auto">
-            <span className="text-xs text-muted-foreground shrink-0">Radius:</span>
-            <div className="flex gap-1.5 shrink-0">
-              {RADIUS_OPTIONS.map((km) => (
-                <Button
-                  key={km}
-                  variant={location.radiusKm === km ? "default" : "outline"}
-                  size="sm"
-                  className="h-7 px-2.5 text-xs shrink-0"
-                  onClick={() => handleRadiusChange(km)}
-                  disabled={isSavingRadius}
-                  aria-pressed={location.radiusKm === km}
-                >
-                  {formatRadius(km)}
-                </Button>
-              ))}
-            </div>
+      {/* Main Content: Two-column layout */}
+      <main className="flex-1 min-h-0 flex overflow-hidden">
+
+        {/* Left Panel: Events & POI list */}
+        <div className="flex-1 min-w-0 flex flex-col border-r overflow-hidden">
+          <div className="shrink-0 px-4 py-3 border-b bg-white">
+            <h2 className="text-sm font-semibold">In deiner Nähe</h2>
+            {hasLocation && !locationLoading && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {location.city} •{" "}
+                {location.radiusKm < 1
+                  ? `${Math.round(location.radiusKm * 1000)} m`
+                  : `${location.radiusKm} km`}{" "}
+                Radius
+              </p>
+            )}
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            {locationLoading ? (
+              <div className="p-4 space-y-3">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="h-20 rounded-lg bg-muted animate-pulse" />
+                ))}
+              </div>
+            ) : !hasLocation ? (
+              <div className="h-full flex items-center justify-center p-6">
+                <div className="text-center space-y-3 max-w-xs">
+                  <MapPin className="h-10 w-10 text-muted-foreground mx-auto" />
+                  <h3 className="font-semibold">Kein Standort gesetzt</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Lege rechts deinen Standort fest, um Veranstaltungen und POIs in deiner Nähe zu entdecken.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="h-full flex items-center justify-center p-6">
+                <div className="text-center space-y-3 max-w-xs">
+                  <Calendar className="h-10 w-10 text-muted-foreground mx-auto" />
+                  <h3 className="font-semibold">Noch keine Veranstaltungen</h3>
+                  <p className="text-sm text-muted-foreground">
+                    In deinem Umkreis wurden noch keine Events oder POIs gefunden. Bald kommen hier Inhalte.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      )}
 
-      {/* Main Content: Map or empty state */}
-      <main className="flex-1 min-h-0 relative">
-        {locationLoading ? (
-          <div className="h-full w-full bg-muted animate-pulse" />
-        ) : hasLocation ? (
-          <LocationMap
-            lat={location.lat!}
-            lng={location.lng!}
-            radiusKm={location.radiusKm}
-            className="h-full w-full z-0"
-          />
-        ) : (
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center space-y-3 p-6">
-              <MapPin className="h-12 w-12 text-muted-foreground mx-auto" />
-              <h2 className="text-xl font-semibold">Kein Standort gesetzt</h2>
-              <p className="text-muted-foreground max-w-xs mx-auto">
-                Klicke oben auf <strong>Standort setzen</strong>, um Events und Posts in deiner Nähe zu entdecken.
-              </p>
-            </div>
-          </div>
-        )}
+        {/* Right Panel: Location settings (always visible) */}
+        <div className="w-80 xl:w-96 shrink-0 bg-white overflow-hidden flex flex-col">
+          {locationLoading ? (
+            <div className="h-full w-full bg-muted animate-pulse" />
+          ) : (
+            <LocationSidePanel
+              currentLocation={location}
+              onSave={saveLocation}
+            />
+          )}
+        </div>
       </main>
 
       {/* Delete Account Dialog */}
