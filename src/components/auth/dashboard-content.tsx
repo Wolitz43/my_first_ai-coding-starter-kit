@@ -50,6 +50,7 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
   const [events, setEvents] = useState<EventRow[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<EventRow | null>(null);
 
   const fetchEvents = useCallback(async () => {
     if (location.lat === null || location.lng === null) return;
@@ -242,7 +243,14 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
             ) : (
               <div className="p-4 space-y-3">
                 {events.map((event) => (
-                  <EventCard key={event.id} event={event} />
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    isSelected={selectedEvent?.id === event.id}
+                    onSelect={(e) =>
+                      setSelectedEvent((prev) => (prev?.id === e.id ? null : e))
+                    }
+                  />
                 ))}
               </div>
             )}
@@ -257,6 +265,8 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
             <LocationSidePanel
               currentLocation={location}
               onSave={saveLocation}
+              selectedEvent={selectedEvent}
+              onClearEvent={() => setSelectedEvent(null)}
             />
           )}
         </div>

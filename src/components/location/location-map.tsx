@@ -16,6 +16,17 @@ const DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
+// Red cross divIcon for selected event position
+const RedCrossIcon = L.divIcon({
+  html: `<div style="position:relative;width:22px;height:22px;">
+    <div style="position:absolute;top:10px;left:0;width:22px;height:2px;background:#dc2626;border-radius:1px;"></div>
+    <div style="position:absolute;left:10px;top:0;width:2px;height:22px;background:#dc2626;border-radius:1px;"></div>
+  </div>`,
+  className: "",
+  iconSize: [22, 22],
+  iconAnchor: [11, 11],
+});
+
 export function getZoomForRadius(radiusKm: number): number {
   if (radiusKm <= 0.1) return 16;
   if (radiusKm <= 0.25) return 15;
@@ -43,6 +54,11 @@ function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => v
   return null;
 }
 
+export interface EventMarker {
+  lat: number;
+  lng: number;
+}
+
 interface LocationMapProps {
   lat: number;
   lng: number;
@@ -54,6 +70,8 @@ interface LocationMapProps {
   scrollWheelZoom?: boolean;
   /** Called when the user clicks on the map */
   onMapClick?: (lat: number, lng: number) => void;
+  /** Red cross marker at selected event position */
+  eventMarker?: EventMarker;
 }
 
 export function LocationMap({
@@ -64,12 +82,18 @@ export function LocationMap({
   showPin = true,
   scrollWheelZoom = false,
   onMapClick,
+  eventMarker,
 }: LocationMapProps) {
+  // When an event is selected, center map on it at street level
+  const viewLat = eventMarker ? eventMarker.lat : lat;
+  const viewLng = eventMarker ? eventMarker.lng : lng;
+  const viewRadius = eventMarker ? 0.5 : radiusKm;
+
   return (
     <div className={onMapClick ? "[&_.leaflet-container]:cursor-crosshair" : undefined}>
       <MapContainer
-        center={[lat, lng]}
-        zoom={showPin ? getZoomForRadius(radiusKm) : 6}
+        center={[viewLat, viewLng]}
+        zoom={showPin ? getZoomForRadius(viewRadius) : 6}
         className={className}
         scrollWheelZoom={scrollWheelZoom}
         zoomControl={true}
@@ -78,8 +102,9 @@ export function LocationMap({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         />
+        {/* User location pin + radius */}
         {showPin && <Marker position={[lat, lng]} />}
-        {showPin && (
+        {showPin && !eventMarker && (
           <Circle
             center={[lat, lng]}
             radius={radiusKm * 1000}
@@ -91,7 +116,11 @@ export function LocationMap({
             }}
           />
         )}
-        {showPin && <MapViewUpdater lat={lat} lng={lng} radiusKm={radiusKm} />}
+        {/* Event red cross */}
+        {eventMarker && (
+          <Marker position={[eventMarker.lat, eventMarker.lng]} icon={RedCrossIcon} />
+        )}
+        <MapViewUpdater lat={viewLat} lng={viewLng} radiusKm={viewRadius} />
         {onMapClick && <MapClickHandler onClick={onMapClick} />}
       </MapContainer>
     </div>
