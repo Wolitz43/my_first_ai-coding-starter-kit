@@ -238,7 +238,7 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
 
             <div className="flex-1 overflow-y-auto">
               {locationLoading ? (
-                <div className="p-4 space-y-3">
+                <div className="p-4 space-y-3 max-w-3xl mx-auto w-full">
                   {[...Array(4)].map((_, i) => (
                     <div key={i} className="h-20 rounded-lg bg-muted animate-pulse" />
                   ))}
@@ -257,7 +257,7 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
                   </div>
                 </div>
               ) : eventsLoading ? (
-                <div className="p-4 space-y-3">
+                <div className="p-4 space-y-3 max-w-3xl mx-auto w-full">
                   {[...Array(4)].map((_, i) => (
                     <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />
                   ))}
@@ -290,7 +290,7 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
                   </div>
                 </div>
               ) : (
-                <div className="p-4 space-y-3">
+                <div className="p-4 space-y-3 max-w-3xl mx-auto w-full">
                   {events.map((event) => (
                     <EventCard
                       key={event.id}
