@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
   title: "Near By Me 24 - Entdecke, was in deiner Naehe passiert",
@@ -15,6 +16,7 @@ export default function RootLayout({
     <html lang="de">
       <body className="antialiased">
         {children}
+        <Toaster position="bottom-right" richColors />
       </body>
     </html>
   );

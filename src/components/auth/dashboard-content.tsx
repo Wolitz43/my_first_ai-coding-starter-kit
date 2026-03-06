@@ -126,7 +126,7 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Header */}
-      <header className="shrink-0 z-40 bg-white border-b">
+      <header className="shrink-0 z-40 bg-background border-b">
         <div className="max-w-full px-4 h-14 flex items-center gap-3">
           <span className="text-lg font-bold tracking-tight shrink-0">Near By Me 24</span>
           <div className="flex-1" />
@@ -179,7 +179,7 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
           className="flex-1 min-h-0 flex flex-col overflow-hidden"
         >
           {/* Tab bar */}
-          <div className="shrink-0 border-b bg-white px-4">
+          <div className="shrink-0 border-b bg-background px-4">
             <TabsList className="h-10 bg-transparent p-0 gap-0 rounded-none">
               <TabsTrigger
                 value="events"
@@ -220,7 +220,7 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
             className="flex-1 min-h-0 flex flex-col overflow-hidden mt-0 data-[state=inactive]:hidden"
           >
             {/* Sub-header with location info + create button */}
-            <div className="shrink-0 px-4 py-2 border-b bg-white flex items-center justify-between gap-2">
+            <div className="shrink-0 px-4 py-2 border-b bg-background flex items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">
                 {hasLocation && !locationLoading
                   ? `${location.city} • ${location.radiusKm < 1 ? `${Math.round(location.radiusKm * 1000)} m` : `${location.radiusKm} km`} Radius`

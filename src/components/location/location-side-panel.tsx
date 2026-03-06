@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { MapPin, Navigation, Loader2, AlertCircle, MousePointer2, Calendar, Clock, ExternalLink, X } from "lucide-react";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -116,6 +117,9 @@ export function LocationSidePanel({
     setSaveError(null);
     try {
       await onSave({ lat: selectedLat, lng: selectedLng, city: selectedCity, radiusKm: selectedRadius });
+      toast.success("Standort gespeichert", {
+        description: `${selectedCity ?? "Standort"} • ${formatRadius(selectedRadius)} Radius`,
+      });
     } catch {
       setSaveError("Standort konnte nicht gespeichert werden. Bitte versuche es erneut.");
     } finally {

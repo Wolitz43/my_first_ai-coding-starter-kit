@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createEventSchema } from "@/lib/events";
+
+const listQuerySchema = z.object({
+  lat:    z.coerce.number().min(-90).max(90).optional(),
+  lng:    z.coerce.number().min(-180).max(180).optional(),
+  radius: z.coerce.number().positive().max(1000).optional(),
+  limit:  z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
 
 // GET /api/events?lat=…&lng=…&radius=…&limit=50&offset=0
 export async function GET(request: NextRequest) {
@@ -11,11 +20,15 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
-  const lat    = parseFloat(searchParams.get("lat")    ?? "");
-  const lng    = parseFloat(searchParams.get("lng")    ?? "");
-  const radius = parseFloat(searchParams.get("radius") ?? "");
-  const limit  = Math.min(parseInt(searchParams.get("limit")  ?? "50", 10), 100);
-  const offset = Math.max(parseInt(searchParams.get("offset") ?? "0",  10), 0);
+  const parsed = listQuerySchema.safeParse(Object.fromEntries(searchParams));
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Ungültige Parameter", details: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    );
+  }
+  const { lat, lng, radius, limit, offset } = parsed.data;
+  const hasFilter = lat !== undefined && lng !== undefined && radius !== undefined;
 
   let query = supabase
     .from("events")
@@ -28,16 +41,15 @@ export async function GET(request: NextRequest) {
     .order("starts_at", { ascending: true })
     .range(offset, offset + limit - 1);
 
-  // Radius filter: only apply when all three params are valid numbers
-  if (!isNaN(lat) && !isNaN(lng) && !isNaN(radius) && radius > 0) {
-    // Haversine bounding box pre-filter (fast, uses index)
-    const latDelta = radius / 111.0;
-    const lngDelta = radius / (111.0 * Math.cos((lat * Math.PI) / 180));
+  // Bounding-box pre-filter when radius params are present (uses lat/lng index)
+  if (hasFilter) {
+    const latDelta = radius! / 111.0;
+    const lngDelta = radius! / (111.0 * Math.cos((lat! * Math.PI) / 180));
     query = query
-      .gte("lat", lat - latDelta)
-      .lte("lat", lat + latDelta)
-      .gte("lng", lng - lngDelta)
-      .lte("lng", lng + lngDelta);
+      .gte("lat", lat! - latDelta)
+      .lte("lat", lat! + latDelta)
+      .gte("lng", lng! - lngDelta)
+      .lte("lng", lng! + lngDelta);
   }
 
   const { data, error } = await query;
@@ -45,7 +57,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Flatten the join result and apply precise Haversine post-filter when needed
+  // Flatten join + precise Haversine post-filter
   const events = (data ?? [])
     .map((row) => {
       const profiles = row.profiles as unknown as { display_name: string | null } | null;
@@ -56,16 +68,15 @@ export async function GET(request: NextRequest) {
       };
     })
     .filter((row) => {
-      if (isNaN(lat) || isNaN(lng) || isNaN(radius) || radius <= 0) return true;
-      const dLat = ((lat - row.lat) * Math.PI) / 180;
-      const dLng = ((lng - row.lng) * Math.PI) / 180;
+      if (!hasFilter) return true;
+      const dLat = ((lat! - row.lat) * Math.PI) / 180;
+      const dLng = ((lng! - row.lng) * Math.PI) / 180;
       const a =
         Math.sin(dLat / 2) ** 2 +
         Math.cos((row.lat * Math.PI) / 180) *
-          Math.cos((lat * Math.PI) / 180) *
+          Math.cos((lat! * Math.PI) / 180) *
           Math.sin(dLng / 2) ** 2;
-      const distKm = 2 * 6371 * Math.asin(Math.sqrt(a));
-      return distKm <= radius;
+      return 2 * 6371 * Math.asin(Math.sqrt(a)) <= radius!;
     });
 
   return NextResponse.json({ events });
