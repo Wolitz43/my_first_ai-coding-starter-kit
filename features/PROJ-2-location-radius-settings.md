@@ -448,5 +448,297 @@ Note: AC-6 regressed from PASS to FAIL. AC-5 worsened from PARTIAL PASS to FAIL.
 13. BUG-9 (Low): Nominatim rate limiting bypass
 14. NEW-BUG-5 (Low): Radius toolbar saves without confirmation
 
+## QA Test Results (Re-Test Round 3 -- Mobile Layout & Dashboard Overhaul)
+
+**Tested:** 2026-03-06
+**App URL:** http://localhost:3000
+**Tester:** QA Engineer (AI)
+**Build Status:** Compiles successfully (Next.js production build passes, 18 routes)
+**Previous QA Round:** 2026-03-01 (Round 2, 14 open bugs)
+**Scope:** Last commit `dd8fe28` ("mobile setup implemented") and related recent commits that overhauled the dashboard layout (event list panel, location side panel, mobile responsive stacking)
+
+---
+
+### Changes Since Last QA Round (Summary)
+
+The dashboard underwent a major redesign across the last ~5 commits:
+
+1. **Layout overhaul:** Replaced full-screen map + header LocationBadge + radius toolbar with a two-panel layout: left panel (event list) + right panel (LocationSidePanel with map, GPS, search, radius).
+2. **Event list integration:** Dashboard now fetches and displays nearby events via `/api/events` with location-based filtering.
+3. **Event selection:** Clicking an EventCard highlights it and shows a red cross marker on the map.
+4. **Mobile responsive (last commit):** Panels stack vertically on mobile (`flex-col`), go side-by-side on `md+` (`md:flex-row`).
+5. **Code cleanup:** Removed `LocationBadge` import, removed radius toolbar, extracted `RADIUS_OPTIONS`/`formatRadius` to shared `src/lib/location.ts`.
+6. **Marker icons bundled locally** in `/public/leaflet/` (no longer from unpkg.com CDN).
+7. **Impressum added to middleware public routes.**
+
+---
+
+### Bugs Fixed Since Last QA Round
+
+| Bug | Status | Verification |
+|-----|--------|-------------|
+| NEW-BUG-3 (Medium): Leaflet Marker-Icons von externem CDN | FIXED | `location-map.tsx` now uses `/leaflet/marker-icon.png` etc. from `/public/leaflet/`. Three icon files verified present in repo. |
+| NEW-BUG-4 (Low): Duplikation RADIUS_OPTIONS / formatRadius | FIXED | Both `location-picker-sheet.tsx` and `location-side-panel.tsx` now import from `@/lib/location`. Dashboard no longer has its own copy. |
+| NEW-BUG-5 (Low): Radius-Toolbar speichert direkt ohne Bestaetigung | FIXED (removed) | The radius toolbar was removed entirely from the dashboard. Radius changes are now only possible in the LocationSidePanel, which has a "Standort speichern" button. |
+| NEW-BUG-6 (Medium): Impressum nicht in Public Routes | FIXED | `middleware.ts` line 41: `publicRoutes` array now includes `"/impressum"`. |
+
+---
+
+### New Issues Found This Round
+
+#### R3-BUG-1: "Lege rechts deinen Standort fest" text incorrect on mobile
+- **Severity:** Low (UX)
+- **File:** `src/components/auth/dashboard-content.tsx` (line 206)
+- **Steps to Reproduce:**
+  1. Open the dashboard on a mobile viewport (375px) without a location set
+  2. The empty state message says "Lege rechts deinen Standort fest"
+  3. On mobile the location panel is below (not to the right), making this instruction misleading
+  4. Expected: Contextual text like "Lege unten deinen Standort fest" on mobile, or a viewport-agnostic instruction
+- **Priority:** Fix in next sprint
+
+#### R3-BUG-2: LocationBadge component is now dead code
+- **Severity:** Low (Code quality)
+- **File:** `src/components/location/location-badge.tsx`
+- **Description:** The `LocationBadge` component is no longer imported or used anywhere in the codebase. The only reference is the file itself. This is dead code that should be removed to avoid confusion.
+- **Priority:** Nice to have (cleanup)
+
+#### R3-BUG-3: Mobile panel height distribution not explicitly controlled
+- **Severity:** Medium (UX / Responsive)
+- **File:** `src/components/auth/dashboard-content.tsx` (lines 166-272)
+- **Steps to Reproduce:**
+  1. Open dashboard on mobile (375px) with a location set and events loaded
+  2. The layout uses `flex-col` with the event list panel having `flex-1` and the location panel having `shrink-0`
+  3. The location side panel has no explicit height constraint on mobile. With `shrink-0` + `flex flex-col`, the side panel will take its natural content height (GPS section + search + map + radius buttons + save button = approximately 600-700px)
+  4. This can push the event list to a very small area, or the location panel may extend beyond the viewport requiring the user to scroll the entire page
+  5. On a 667px viewport (iPhone SE minus header), the events panel gets very little space
+- **Expected:** On mobile, either: (a) the location panel is collapsible/in a sheet, (b) explicit height split (e.g., 50/50), or (c) the side panel scrolls within a constrained area
+- **Priority:** Fix before deployment -- core mobile usability issue
+
+#### R3-BUG-4: Events not re-fetched after saving new location in side panel
+- **Severity:** Medium (Functional)
+- **File:** `src/components/auth/dashboard-content.tsx`
+- **Steps to Reproduce:**
+  1. Open dashboard with location "Berlin" set, showing Berlin events
+  2. In the LocationSidePanel, search for "Munich", click save
+  3. The `useLocation` hook updates `location` state, which triggers the `useEffect` -> `fetchEvents` via the `useCallback` dependency on `location.lat, location.lng, location.radiusKm`
+  4. This should work correctly due to React reactivity. HOWEVER: the `saveLocation` function in `useLocation` updates local state optimistically, but the Supabase write is async. If there is a network delay or error, the events list may briefly show events for the new location then revert.
+  5. Verified: The `saveLocation` in `useLocation` does `setLocation(newData)` before the Supabase call, then the side panel catches errors. But the dashboard's `fetchEvents` fires on the optimistic state, not the confirmed state.
+- **Actual risk:** Low in practice since the optimistic update is reasonable UX. But if the save fails, the dashboard shows events for a location that was not actually saved.
+- **Priority:** Fix in next sprint (add rollback on save failure)
+
+#### R3-BUG-5: No loading indicator when events are re-fetching after location change
+- **Severity:** Low (UX)
+- **File:** `src/components/auth/dashboard-content.tsx`
+- **Description:** When the user changes radius or location, the events list shows the old events until the new fetch completes. There is no visual indicator that events are being refreshed (no spinner overlay, no fade). The `eventsLoading` skeleton only shows on initial load, because the skeleton replaces the entire list. During a re-fetch, the old list remains visible.
+- **Priority:** Nice to have
+
+#### R3-BUG-6: Events API has no Zod validation on query parameters
+- **Severity:** Medium (Security)
+- **File:** `src/app/api/events/route.ts` (lines 13-18)
+- **Steps to Reproduce:**
+  1. Call `GET /api/events?lat=abc&lng=xyz&radius=-999&limit=999999`
+  2. `parseFloat("abc")` returns `NaN`, `parseInt("999999")` is clamped to 100 by `Math.min`. But `radius=-999` passes the `!isNaN(radius)` check and `radius > 0` filters it out. No error returned to client for invalid inputs.
+  3. The `limit` is clamped but the `offset` has no upper bound -- `offset=999999999` would skip all rows (no error, just empty result)
+  4. Per backend rules: "Validate all inputs using Zod schemas before processing"
+- **Priority:** Fix before deployment (backend rule violation)
+
+---
+
+### Acceptance Criteria Status (Re-Test Round 3)
+
+#### AC-1: Browser-Geolocation wird beim ersten Aufruf angefragt (mit erklaerender Meldung)
+- [ ] BUG: Still NOT fixed. User must manually click "Meinen Standort verwenden" in the side panel.
+- [ ] BUG: Still no explanatory message before the browser permission prompt.
+- **Status: FAIL** (unchanged since Round 1 -- BUG-1 still open)
+
+#### AC-2: Bei Ablehnung der GPS-Berechtigung wird automatisch zur manuellen Eingabe gewechselt
+- [x] GPS denial shows appropriate error message
+- [x] Manual input always visible in the side panel
+- **Status: PASS**
+
+#### AC-3: Manuelle Eingabe per Stadt (Autocomplete) oder PLZ funktioniert
+- [x] Search field present in LocationSidePanel
+- [x] 500ms debounce, Nominatim integration, result selection all functional
+- **Status: PASS**
+
+#### AC-4: Eingabe wird auf gueltige Orte validiert (kein Freitext-Missbrauch)
+- [x] Only Nominatim results can be selected
+- [ ] BUG: Still no server-side validation (BUG-5 still open)
+- **Status: PARTIAL PASS**
+
+#### AC-5: Radius-Auswahl mit definierten Schritten
+- [ ] BUG: Radius options still [0.1, 0.25, 0.5, 1, 5, 20, 100] -- missing 10, 25, 50 km (NEW-BUG-1 still open)
+- [ ] BUG: Still uses button grid instead of slider (BUG-2 still open)
+- [x] Selected radius visually highlighted with aria-pressed
+- **Status: FAIL** (unchanged)
+
+#### AC-6: Standardradius: 10 km
+- [ ] BUG: Default radius still 1 km (NEW-BUG-2 still open)
+- **Status: FAIL** (unchanged)
+
+#### AC-7: Einstellungen werden im User-Profil gespeichert (nicht nur Session)
+- [x] LocationSidePanel saves via onSave -> saveLocation -> Supabase profiles table
+- [x] Error handling with try/catch and user-facing error message
+- **Status: PASS**
+
+#### AC-8: Standort + Radius werden sichtbar in der UI angezeigt
+- [x] Event list header shows "City . Radius" (line 175-179)
+- [x] LocationSidePanel header shows "Standort & Radius"
+- [x] Map shows pin and radius circle
+- [x] Sub-km display works (e.g., "100m", "250m")
+- **Status: PASS**
+
+#### AC-9: Einstellungen koennen jederzeit ueber ein Icon/Button geaendert werden
+- [x] LocationSidePanel is always visible on desktop (right panel)
+- [x] LocationSidePanel is always visible on mobile (bottom panel)
+- [x] No longer requires opening a sheet -- settings are inline
+- **Status: PASS**
+
+### Acceptance Criteria Summary: 5/9 PASSED, 2 FAILED, 2 PARTIAL PASS (unchanged)
+
+---
+
+### Responsive Testing (Mobile Layout -- Focus of This Round)
+
+#### 375px (Mobile)
+- [x] Layout switches from side-by-side to stacked (`flex-col` below `md` breakpoint)
+- [x] Event list panel takes full width
+- [x] Location panel takes full width (`w-full` on mobile)
+- [x] Border switches from `border-r` to `border-b` on the top panel
+- [x] Header user name hidden on small screens (`hidden sm:inline-block`)
+- [ ] BUG: "Lege rechts deinen Standort fest" is incorrect on mobile (R3-BUG-1)
+- [ ] BUG: Location side panel has no height constraint on mobile, may push event list out of view (R3-BUG-3)
+- [x] User menu dropdown accessible
+
+#### 768px (Tablet -- at `md` breakpoint)
+- [x] Layout switches to side-by-side (`md:flex-row`)
+- [x] Right panel is 320px (`md:w-80`)
+- [x] Left panel fills remaining space (`flex-1 min-w-0`)
+- [x] Borders correct (`md:border-r` on left, `md:border-t-0` on right)
+
+#### 1440px (Desktop)
+- [x] Right panel expands to 384px (`xl:w-96`)
+- [x] Plenty of space for event list
+- [x] Map + location controls all visible without scrolling
+
+#### Cross-Browser (Code Review)
+- [x] Tailwind responsive breakpoints work identically in Chrome, Firefox, Safari
+- [x] `flex-col md:flex-row` is standard CSS flexbox, universally supported
+- [x] No browser-specific features introduced
+
+---
+
+### Security Audit Results (Round 3)
+
+#### Authentication
+- [x] Dashboard page protected by server component auth check
+- [x] Events API checks authentication (line 8-11 in route.ts)
+- [x] Location operations require authenticated user
+
+#### Authorization
+- [x] Events API fetches all events (no owner restriction for read -- correct for discovery feed)
+- [x] Profile updates scoped to current user via `.eq("id", user.id)`
+
+#### Input Validation
+- [ ] BUG: Events API GET has no Zod validation on query params (R3-BUG-6)
+- [ ] BUG: Location data still has no server-side validation (BUG-5 still open)
+
+#### XSS
+- [x] All dynamic content rendered via React JSX (auto-escaped)
+- [x] `event.title`, `event.description`, `event.city` all rendered safely
+- [x] No `dangerouslySetInnerHTML` usage
+
+#### Supply Chain
+- [x] Marker icons now bundled locally (NEW-BUG-3 FIXED)
+- [x] OpenStreetMap tiles loaded over HTTPS
+
+#### Data Exposure
+- [x] Events API returns `creator_display_name` but not `creator_id` email or other PII... wait, it does return `creator_id` (line 23). This is a UUID, not directly sensitive, but could be used for enumeration.
+- [ ] NOTE: Events API returns `creator_id` (UUID) in response. While not directly exploitable, consider omitting it from public-facing responses.
+
+---
+
+### All Open Bugs (Consolidated -- Round 3)
+
+#### From Previous Rounds (Still Open)
+
+| ID | Title | Severity | Status |
+|----|-------|----------|--------|
+| BUG-1 | GPS nicht automatisch beim ersten Aufruf angefragt | Medium | Still open |
+| BUG-2 | Radius uses button grid instead of Slider | Low | Still open |
+| BUG-5 | Keine serverseitige Validierung der Standortdaten | Medium | Still open |
+| BUG-6 | Keine Fehlermeldung bei Suche ohne Ergebnisse | Low | Still open |
+| BUG-7 | Kein Session-Speicher fuer nicht eingeloggte User | Medium | Still open |
+| BUG-8 | RLS-Policies nicht verifizierbar | Medium | Still open |
+| BUG-9 | Nominatim-Aufrufe ohne serverseitiges Rate-Limiting | Low | Still open |
+| BUG-11 | Keine Keyboard-Navigation in Autocomplete | Low | Still open |
+| NEW-BUG-1 | Radius-Optionen weichen von Spec ab (missing 10/25/50 km) | Medium | Still open |
+| NEW-BUG-2 | Standardradius 1 km statt 10 km (AC-6 regression) | Medium | Still open |
+
+#### Fixed This Round (Verified)
+
+| ID | Title | Severity | Status |
+|----|-------|----------|--------|
+| NEW-BUG-3 | Leaflet Marker-Icons von externem CDN | Medium | FIXED (bundled locally) |
+| NEW-BUG-4 | Duplikation RADIUS_OPTIONS / formatRadius | Low | FIXED (extracted to lib) |
+| NEW-BUG-5 | Radius-Toolbar speichert direkt ohne Bestaetigung | Low | FIXED (toolbar removed) |
+| NEW-BUG-6 | Impressum nicht in Public Routes | Medium | FIXED (added to publicRoutes) |
+
+#### New Bugs Found This Round
+
+| ID | Title | Severity | Priority |
+|----|-------|----------|----------|
+| R3-BUG-1 | "Lege rechts" text incorrect on mobile layout | Low | Fix in next sprint |
+| R3-BUG-2 | LocationBadge component is dead code | Low | Nice to have (cleanup) |
+| R3-BUG-3 | Mobile panel height not constrained -- location panel may dominate viewport | Medium | Fix before deployment |
+| R3-BUG-4 | Optimistic event fetch may show wrong events on save failure | Low | Fix in next sprint |
+| R3-BUG-5 | No loading indicator during event re-fetch | Low | Nice to have |
+| R3-BUG-6 | Events API GET has no Zod validation on query params | Medium | Fix before deployment |
+
+---
+
+### Summary
+
+| Category | Result | Change vs Round 2 |
+|----------|--------|-------------------|
+| **Acceptance Criteria** | 5/9 PASSED, 2 FAILED, 2 PARTIAL | Same |
+| **Edge Cases** | 3/5 PASSED, 2 FAILED | Same |
+| **Bugs Fixed This Round** | 4 (2 Medium, 2 Low) | Improvement |
+| **Bugs Still Open (prev)** | 10 (6 Medium, 4 Low) | Down from 14 |
+| **New Bugs Found** | 6 (2 Medium, 4 Low) | New |
+| **Total Open Bugs** | 16 (0 Critical, 0 High, 8 Medium, 8 Low) | Was 14 |
+| **Security Audit** | 2 medium issues remain + 1 new | Similar |
+| **Regression (PROJ-1)** | No new regressions (Impressum fixed) | Improvement |
+| **Build** | Compiles successfully (18 routes) | Same |
+| **Mobile Layout** | Functional but has usability issues | New scope |
+
+### Production Ready: NO
+
+**Reason:** 8 Medium-severity bugs remain. The mobile layout change works at a basic level but has a significant usability issue with panel height distribution.
+
+**Must fix before deployment:**
+1. R3-BUG-3 (Medium): Mobile panel height not constrained -- core mobile usability issue
+2. R3-BUG-6 (Medium): Events API missing Zod validation (backend rule violation)
+3. BUG-5 (Medium): No server-side validation of location data
+4. BUG-8 (Medium): RLS policies not verifiable from repo
+
+**Discuss with product (spec vs implementation):**
+5. NEW-BUG-1 (Medium): Radius options deviate from spec
+6. NEW-BUG-2 (Medium): Default radius 1 km instead of 10 km
+7. BUG-1 (Medium): GPS not requested automatically
+8. BUG-7 (Medium): No session storage for non-logged-in users
+
+**Fix in next sprint:**
+9. R3-BUG-1 (Low): "Lege rechts" text wrong on mobile
+10. R3-BUG-4 (Low): Optimistic fetch rollback
+11. BUG-6 (Low): No feedback for empty search results
+12. BUG-11 (Low): No keyboard navigation in autocomplete
+
+**Nice to have:**
+13. R3-BUG-2 (Low): Remove dead LocationBadge code
+14. R3-BUG-5 (Low): Add re-fetch loading indicator
+15. BUG-2 (Low): Button grid vs slider
+16. BUG-9 (Low): Nominatim rate limiting
+
 ## Deployment
 _To be added by /deploy_

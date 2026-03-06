@@ -5,6 +5,8 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { LogOut, Loader2, Trash2, User, MapPin, Calendar, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLocation } from "@/hooks/use-location";
 import { EventCard } from "@/components/events/event-card";
 import type { EventRow } from "@/lib/events";
@@ -44,6 +46,7 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("events");
 
   const { location, isLoading: locationLoading, saveLocation } = useLocation();
 
@@ -81,6 +84,15 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
     fetchEvents();
   }, [fetchEvents]);
 
+  // Switch to map tab when event is selected so the red cross is visible
+  function handleSelectEvent(event: EventRow) {
+    setSelectedEvent((prev) => {
+      const next = prev?.id === event.id ? null : event;
+      if (next) setActiveTab("standort");
+      return next;
+    });
+  }
+
   async function handleLogout() {
     setIsLoggingOut(true);
     try {
@@ -113,14 +125,11 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
-      {/* Top Header */}
+      {/* Header */}
       <header className="shrink-0 z-40 bg-white border-b">
         <div className="max-w-full px-4 h-14 flex items-center gap-3">
           <span className="text-lg font-bold tracking-tight shrink-0">Near By Me 24</span>
-
           <div className="flex-1" />
-
-          {/* User info + menu (right) */}
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-sm text-muted-foreground hidden sm:inline-block truncate max-w-[160px]">
               {displayName ?? userEmail}
@@ -162,114 +171,156 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
         </div>
       </header>
 
-      {/* Main Content: stacked on mobile, side-by-side on md+ */}
-      <main className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
+      {/* Main: Tabs */}
+      <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="flex-1 min-h-0 flex flex-col overflow-hidden"
+        >
+          {/* Tab bar */}
+          <div className="shrink-0 border-b bg-white px-4">
+            <TabsList className="h-10 bg-transparent p-0 gap-0 rounded-none">
+              <TabsTrigger
+                value="events"
+                className="relative h-10 rounded-none border-b-2 border-transparent px-4 text-sm font-medium data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent shadow-none"
+              >
+                <span className="flex items-center gap-2">
+                  Veranstaltungen
+                  {!eventsLoading && (
+                    <Badge
+                      variant={events.length > 0 ? "default" : "secondary"}
+                      className="h-5 px-1.5 text-xs"
+                    >
+                      {events.length}
+                    </Badge>
+                  )}
+                  {eventsLoading && (
+                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                  )}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="standort"
+                className="relative h-10 rounded-none border-b-2 border-transparent px-4 text-sm font-medium data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent shadow-none"
+              >
+                <span className="flex items-center gap-2">
+                  Standort & Radius
+                  {selectedEvent && (
+                    <span className="inline-block w-2 h-2 rounded-full bg-red-500" />
+                  )}
+                </span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-        {/* Top/Left Panel: Events & POI list */}
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col border-b md:border-b-0 md:border-r overflow-hidden">
-          <div className="shrink-0 px-4 py-3 border-b bg-white flex items-center justify-between gap-2">
-            <div>
-              <h2 className="text-sm font-semibold">In deiner Naehe</h2>
-              {hasLocation && !locationLoading && (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {location.city} •{" "}
-                  {location.radiusKm < 1
-                    ? `${Math.round(location.radiusKm * 1000)} m`
-                    : `${location.radiusKm} km`}{" "}
-                  Radius
-                </p>
+          {/* Events tab */}
+          <TabsContent
+            value="events"
+            className="flex-1 min-h-0 flex flex-col overflow-hidden mt-0 data-[state=inactive]:hidden"
+          >
+            {/* Sub-header with location info + create button */}
+            <div className="shrink-0 px-4 py-2 border-b bg-white flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                {hasLocation && !locationLoading
+                  ? `${location.city} • ${location.radiusKm < 1 ? `${Math.round(location.radiusKm * 1000)} m` : `${location.radiusKm} km`} Radius`
+                  : "Kein Standort gesetzt"}
+              </p>
+              {hasLocation && (
+                <Button size="sm" asChild>
+                  <Link href="/events/create">
+                    <Plus className="h-4 w-4 mr-1" />
+                    Event erstellen
+                  </Link>
+                </Button>
               )}
             </div>
-            {hasLocation && (
-              <Button size="sm" asChild>
-                <Link href="/events/create">
-                  <Plus className="h-4 w-4 mr-1" />
-                  Event erstellen
-                </Link>
-              </Button>
-            )}
-          </div>
 
-          <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto">
+              {locationLoading ? (
+                <div className="p-4 space-y-3">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="h-20 rounded-lg bg-muted animate-pulse" />
+                  ))}
+                </div>
+              ) : !hasLocation ? (
+                <div className="h-full flex items-center justify-center p-6">
+                  <div className="text-center space-y-3 max-w-xs">
+                    <MapPin className="h-10 w-10 text-muted-foreground mx-auto" />
+                    <h3 className="font-semibold">Kein Standort gesetzt</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Wechsle zum Reiter <strong>Standort & Radius</strong>, um deinen Standort festzulegen.
+                    </p>
+                    <Button variant="outline" size="sm" onClick={() => setActiveTab("standort")}>
+                      Zum Standort
+                    </Button>
+                  </div>
+                </div>
+              ) : eventsLoading ? (
+                <div className="p-4 space-y-3">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />
+                  ))}
+                </div>
+              ) : eventsError ? (
+                <div className="h-full flex items-center justify-center p-6">
+                  <div className="text-center space-y-3 max-w-xs">
+                    <Calendar className="h-10 w-10 text-destructive mx-auto" />
+                    <h3 className="font-semibold">Fehler</h3>
+                    <p className="text-sm text-muted-foreground">{eventsError}</p>
+                    <Button variant="outline" size="sm" onClick={fetchEvents}>
+                      Erneut versuchen
+                    </Button>
+                  </div>
+                </div>
+              ) : events.length === 0 ? (
+                <div className="h-full flex items-center justify-center p-6">
+                  <div className="text-center space-y-3 max-w-xs">
+                    <Calendar className="h-10 w-10 text-muted-foreground mx-auto" />
+                    <h3 className="font-semibold">Noch keine Veranstaltungen</h3>
+                    <p className="text-sm text-muted-foreground">
+                      In deinem Umkreis wurden noch keine Events gefunden. Erstelle das erste!
+                    </p>
+                    <Button size="sm" asChild>
+                      <Link href="/events/create">
+                        <Plus className="h-4 w-4 mr-1" />
+                        Event erstellen
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 space-y-3">
+                  {events.map((event) => (
+                    <EventCard
+                      key={event.id}
+                      event={event}
+                      isSelected={selectedEvent?.id === event.id}
+                      onSelect={handleSelectEvent}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Standort tab */}
+          <TabsContent
+            value="standort"
+            className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden"
+          >
             {locationLoading ? (
-              <div className="p-4 space-y-3">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="h-20 rounded-lg bg-muted animate-pulse" />
-                ))}
-              </div>
-            ) : !hasLocation ? (
-              <div className="h-full flex items-center justify-center p-6">
-                <div className="text-center space-y-3 max-w-xs">
-                  <MapPin className="h-10 w-10 text-muted-foreground mx-auto" />
-                  <h3 className="font-semibold">Kein Standort gesetzt</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Lege rechts deinen Standort fest, um Veranstaltungen und POIs in deiner Naehe zu entdecken.
-                  </p>
-                </div>
-              </div>
-            ) : eventsLoading ? (
-              <div className="p-4 space-y-3">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />
-                ))}
-              </div>
-            ) : eventsError ? (
-              <div className="h-full flex items-center justify-center p-6">
-                <div className="text-center space-y-3 max-w-xs">
-                  <Calendar className="h-10 w-10 text-destructive mx-auto" />
-                  <h3 className="font-semibold">Fehler</h3>
-                  <p className="text-sm text-muted-foreground">{eventsError}</p>
-                  <Button variant="outline" size="sm" onClick={fetchEvents}>
-                    Erneut versuchen
-                  </Button>
-                </div>
-              </div>
-            ) : events.length === 0 ? (
-              <div className="h-full flex items-center justify-center p-6">
-                <div className="text-center space-y-3 max-w-xs">
-                  <Calendar className="h-10 w-10 text-muted-foreground mx-auto" />
-                  <h3 className="font-semibold">Noch keine Veranstaltungen</h3>
-                  <p className="text-sm text-muted-foreground">
-                    In deinem Umkreis wurden noch keine Events gefunden. Erstelle das erste!
-                  </p>
-                  <Button size="sm" asChild>
-                    <Link href="/events/create">
-                      <Plus className="h-4 w-4 mr-1" />
-                      Event erstellen
-                    </Link>
-                  </Button>
-                </div>
-              </div>
+              <div className="h-full w-full bg-muted animate-pulse" />
             ) : (
-              <div className="p-4 space-y-3">
-                {events.map((event) => (
-                  <EventCard
-                    key={event.id}
-                    event={event}
-                    isSelected={selectedEvent?.id === event.id}
-                    onSelect={(e) =>
-                      setSelectedEvent((prev) => (prev?.id === e.id ? null : e))
-                    }
-                  />
-                ))}
-              </div>
+              <LocationSidePanel
+                currentLocation={location}
+                onSave={saveLocation}
+                selectedEvent={selectedEvent}
+                onClearEvent={() => setSelectedEvent(null)}
+              />
             )}
-          </div>
-        </div>
-
-        {/* Bottom/Right Panel: Location settings (always visible) */}
-        <div className="w-full md:w-80 xl:w-96 shrink-0 bg-white overflow-hidden flex flex-col border-t md:border-t-0">
-          {locationLoading ? (
-            <div className="h-full w-full bg-muted animate-pulse" />
-          ) : (
-            <LocationSidePanel
-              currentLocation={location}
-              onSave={saveLocation}
-              selectedEvent={selectedEvent}
-              onClearEvent={() => setSelectedEvent(null)}
-            />
-          )}
-        </div>
+          </TabsContent>
+        </Tabs>
       </main>
 
       {/* Delete Account Dialog */}
