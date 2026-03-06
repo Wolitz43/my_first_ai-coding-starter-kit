@@ -162,11 +162,11 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
         </div>
       </header>
 
-      {/* Main Content: Two-column layout */}
-      <main className="flex-1 min-h-0 flex overflow-hidden">
+      {/* Main Content: stacked on mobile, side-by-side on md+ */}
+      <main className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
 
-        {/* Left Panel: Events & POI list */}
-        <div className="flex-1 min-w-0 flex flex-col border-r overflow-hidden">
+        {/* Top/Left Panel: Events & POI list */}
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col border-b md:border-b-0 md:border-r overflow-hidden">
           <div className="shrink-0 px-4 py-3 border-b bg-white flex items-center justify-between gap-2">
             <div>
               <h2 className="text-sm font-semibold">In deiner Naehe</h2>
@@ -257,8 +257,8 @@ export function DashboardContent({ userEmail, displayName }: DashboardContentPro
           </div>
         </div>
 
-        {/* Right Panel: Location settings (always visible) */}
-        <div className="w-80 xl:w-96 shrink-0 bg-white overflow-hidden flex flex-col">
+        {/* Bottom/Right Panel: Location settings (always visible) */}
+        <div className="w-full md:w-80 xl:w-96 shrink-0 bg-white overflow-hidden flex flex-col border-t md:border-t-0">
           {locationLoading ? (
             <div className="h-full w-full bg-muted animate-pulse" />
           ) : (
