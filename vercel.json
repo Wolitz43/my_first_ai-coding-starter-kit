@@ -1,12 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/cron/meetup",
-      "schedule": "0 6 * * *"
-    },
-    {
       "path": "/api/cron/ticketmaster",
-      "schedule": "0 7 * * *"
+      "schedule": "0 6 * * *"
     }
   ]
 }
